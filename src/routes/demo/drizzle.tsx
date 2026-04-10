@@ -2,13 +2,16 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "#/db/index";
 import { desc } from "drizzle-orm";
-import { alliance } from "#/db/schema/schema";
+import { airline, alliance } from "#/db/schema/schema";
 
 const getTodos = createServerFn({
   method: "GET",
 }).handler(async () => {
   return await db.query.alliance.findMany({
     orderBy: [desc(alliance.code)],
+    with: {
+      airlines: true,
+    },
   });
 });
 
