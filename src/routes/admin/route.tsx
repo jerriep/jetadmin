@@ -1,5 +1,5 @@
 import type { NavItem } from "#/types/nav";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import {
   Sidebar,
   SidebarContent,
@@ -34,7 +34,7 @@ const navItems: NavItem[] = [
   { title: "Aircraft Types", to: "/admin" },
   { title: "Airline Info CMS", to: "/admin" },
   { title: "Airlines", to: "/admin" },
-  { title: "Alliances", to: "/admin" },
+  { title: "Alliances", to: "/admin/alliances" },
   { title: "Ancillaries Settings", to: "/admin" },
   { title: "AutoCharge Rules", to: "/admin" },
   { title: "Automated Refunds", to: "/admin" },
@@ -144,12 +144,7 @@ function RouteComponent() {
           </Breadcrumb>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-            <div className="aspect-video rounded-xl bg-muted/50" />
-            <div className="aspect-video rounded-xl bg-muted/50" />
-            <div className="aspect-video rounded-xl bg-muted/50" />
-          </div>
-          <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min" />
+          <Outlet />
         </div>
       </SidebarInset>
     </SidebarProvider>
