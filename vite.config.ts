@@ -15,6 +15,9 @@ const config = defineConfig({
     tanstackStart(),
     viteReact(),
   ],
+  optimizeDeps: {
+    include: ['use-sync-external-store/shim/with-selector'],
+  },
 })
 
 export default config
