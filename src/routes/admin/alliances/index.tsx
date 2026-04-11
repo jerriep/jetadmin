@@ -42,9 +42,15 @@ function RouteComponent() {
           <TableRow key={a.pk}>
             <TableCell>{a.code}</TableCell>
             <TableCell>{a.name}</TableCell>
-            <TableCell><BooleanIconCell value={a.active} /></TableCell>
-            <TableCell><BooleanBadgeCell value={a.allowInQuery} /></TableCell>
-            <TableCell><BooleanBadgeCell value={a.priorityInList} /></TableCell>
+            <TableCell>
+              <BooleanIconCell value={a.active} />
+            </TableCell>
+            <TableCell>
+              <BooleanBadgeCell value={a.allowInQuery} trueLabel="Allow" falseLabel="Disallow" />
+            </TableCell>
+            <TableCell>
+              <BooleanBadgeCell value={a.priorityInList} />
+            </TableCell>
           </TableRow>
         ))}
         {alliances.length === 0 && (
