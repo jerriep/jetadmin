@@ -2,8 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { asc } from "drizzle-orm";
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { useHotkey } from "@tanstack/react-hotkeys";
-import { useEffect, useRef, useState } from "react";
 import { db } from "#/db/index";
 import { alliance } from "#/db/schema/schema";
 import {
@@ -14,10 +12,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { BooleanIconCell } from "@/components/table-boolean-icon-cell";
+import { ChevronRightIcon } from "lucide-react";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 
 type Alliance = typeof alliance.$inferSelect;
+
+const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
+  return await db.select().from(alliance).orderBy(asc(alliance.name));
+});
+
+export const Route = createFileRoute("/admin/alliances/")({
+  component: RouteComponent,
+  loader: async () => await getAlliances(),
+});
 
 const columns: ColumnDef<Alliance>[] = [
   {
@@ -31,7 +38,9 @@ const columns: ColumnDef<Alliance>[] = [
   {
     accessorKey: "active",
     header: "Active",
-    cell: ({ getValue }) => <BooleanIconCell value={getValue<boolean | null>()} />,
+    cell: ({ getValue }) => (
+      <BooleanBadgeCell value={getValue<boolean | null>()} trueLabel="Active" falseLabel="Inactive" />
+    ),
   },
   {
     accessorKey: "allowInQuery",
@@ -49,21 +58,15 @@ const columns: ColumnDef<Alliance>[] = [
     header: "Priority in List",
     cell: ({ getValue }) => <BooleanBadgeCell value={getValue<boolean | null>()} />,
   },
+  {
+    id: "actions",
+    header: () => null,
+    cell: () => <ChevronRightIcon className="size-4 text-muted-foreground" />,
+  },
 ];
-
-const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
-  return await db.select().from(alliance).orderBy(asc(alliance.name));
-});
-
-export const Route = createFileRoute("/admin/alliances/")({
-  component: RouteComponent,
-  loader: async () => await getAlliances(),
-});
 
 function RouteComponent() {
   const data = Route.useLoaderData();
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const rowRefs = useRef<Array<HTMLTableRowElement | null>>([]);
 
   const table = useReactTable({
     data,
@@ -72,30 +75,6 @@ function RouteComponent() {
   });
 
   const rows = table.getRowModel().rows;
-
-  useHotkey("ArrowDown", () => {
-    setSelectedIndex((prev) => {
-      if (prev === null) return 0;
-      return Math.min(prev + 1, rows.length - 1);
-    });
-  });
-
-  useHotkey("ArrowUp", () => {
-    setSelectedIndex((prev) => {
-      if (prev === null) return 0;
-      return Math.max(prev - 1, 0);
-    });
-  });
-
-  useHotkey("Escape", () => {
-    setSelectedIndex(null);
-  });
-
-  useEffect(() => {
-    if (selectedIndex !== null) {
-      rowRefs.current[selectedIndex]?.scrollIntoView({ block: "nearest" });
-    }
-  }, [selectedIndex]);
 
   return (
     <Table>
@@ -114,14 +93,8 @@ function RouteComponent() {
       </TableHeader>
       <TableBody>
         {rows.length > 0 ? (
-          rows.map((row, index) => (
-            <TableRow
-              key={row.id}
-              ref={(el) => { rowRefs.current[index] = el; }}
-              data-selected={selectedIndex === index}
-              className="cursor-pointer data-[selected=true]:bg-muted"
-              onClick={() => setSelectedIndex(index)}
-            >
+          rows.map((row) => (
+            <TableRow key={row.id}>
               {row.getVisibleCells().map((cell) => (
                 <TableCell key={cell.id}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

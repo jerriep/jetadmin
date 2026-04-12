@@ -1,31 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { asc } from "drizzle-orm";
-import { ChevronRightIcon } from "lucide-react";
+import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { db } from "#/db/index";
 import { airline } from "#/db/schema/schema";
 import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from "#/components/ui/item";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ChevronRightIcon } from "lucide-react";
+import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
+
+type AirlineRow = typeof airline.$inferSelect;
 
 const getAirlines = createServerFn({ method: "GET" }).handler(async () => {
-  return await db
-    .select({
-      pk: airline.pk,
-      code: airline.code,
-      code3: airline.code3,
-      name: airline.name,
-      active: airline.active,
-      tier: airline.tier,
-    })
-    .from(airline)
-    .orderBy(asc(airline.name));
+  return await db.select().from(airline).orderBy(asc(airline.name));
 });
 
 export const Route = createFileRoute("/admin/airlines/")({
@@ -33,35 +26,90 @@ export const Route = createFileRoute("/admin/airlines/")({
   loader: async () => await getAirlines(),
 });
 
+const columns: ColumnDef<AirlineRow>[] = [
+  {
+    id: "logo",
+    header: () => null,
+    cell: ({ row }) => (
+      <img
+        src={`https://www.jetabroad.com.au/assets/airlines/logos/${row.original.code}.svg`}
+        alt={row.original.name ?? row.original.code ?? ""}
+        className="size-8 object-contain"
+      />
+    ),
+  },
+  {
+    accessorKey: "code",
+    header: "IATA",
+    cell: ({ getValue }) => (
+      <span className="tabular-nums text-muted-foreground">
+        {getValue<string | null>() ?? "—"}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "name",
+    header: "Name",
+  },
+  {
+    accessorKey: "active",
+    header: "Active",
+    cell: ({ getValue }) => (
+      <BooleanBadgeCell value={getValue<boolean>()} trueLabel="Active" falseLabel="Inactive" />
+    ),
+  },
+  {
+    id: "actions",
+    header: () => null,
+    cell: () => <ChevronRightIcon className="size-4 text-muted-foreground" />,
+  },
+];
+
 function RouteComponent() {
   const data = Route.useLoaderData();
 
-  if (data.length === 0) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">No airlines found.</p>;
-  }
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  const rows = table.getRowModel().rows;
 
   return (
-    <ItemGroup>
-      {data.map((row) => (
-        <Item key={row.pk} variant="outline" className="hover:bg-muted cursor-pointer">
-          <ItemMedia variant="image" className="w-16 [&_img]:object-contain">
-            <img
-              src={`https://www.jetabroad.com.au/assets/airlines/logos/${row.code}.svg`}
-              alt={row.name ?? row.code ?? ""}
-            />
-          </ItemMedia>
-          <ItemContent>
-            <ItemTitle>{row.name}</ItemTitle>
-            <ItemDescription>
-              {[row.code, row.code3].filter(Boolean).join(" · ")}
-              {row.tier != null ? ` · Tier ${row.tier}` : ""}
-            </ItemDescription>
-          </ItemContent>
-          <ItemActions>
-            <ChevronRightIcon className="size-4 text-muted-foreground" />
-          </ItemActions>
-        </Item>
-      ))}
-    </ItemGroup>
+    <Table>
+      <TableHeader>
+        {table.getHeaderGroups().map((headerGroup) => (
+          <TableRow key={headerGroup.id}>
+            {headerGroup.headers.map((header) => (
+              <TableHead key={header.id} className="whitespace-nowrap">
+                {header.isPlaceholder
+                  ? null
+                  : flexRender(header.column.columnDef.header, header.getContext())}
+              </TableHead>
+            ))}
+          </TableRow>
+        ))}
+      </TableHeader>
+      <TableBody>
+        {rows.length > 0 ? (
+          rows.map((row) => (
+            <TableRow key={row.id} className="cursor-pointer">
+              {row.getVisibleCells().map((cell) => (
+                <TableCell key={cell.id}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))
+        ) : (
+          <TableRow>
+            <TableCell colSpan={columns.length} className="py-8 text-center text-muted-foreground">
+              No airlines found.
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
   );
 }
