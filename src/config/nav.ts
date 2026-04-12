@@ -5,7 +5,7 @@ export const adminNavItems: NavItem[] = [
   { title: "Affiliates", to: "/admin" },
   { title: "Aircraft Types", to: "/admin" },
   { title: "Airline Info CMS", to: "/admin" },
-  { title: "Airlines", to: "/admin" },
+  { title: "Airlines", to: "/admin/airlines" },
   { title: "Alliances", to: "/admin/alliances" },
   { title: "Ancillaries Settings", to: "/admin" },
   { title: "AutoCharge Rules", to: "/admin" },

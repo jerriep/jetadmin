@@ -17,6 +17,7 @@ import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-qu
 import { Route as DemoDrizzleRouteImport } from './routes/demo/drizzle'
 import { Route as DemoBetterAuthRouteImport } from './routes/demo/better-auth'
 import { Route as AdminAlliancesIndexRouteImport } from './routes/admin/alliances/index'
+import { Route as AdminAirlinesIndexRouteImport } from './routes/admin/airlines/index'
 import { Route as DemoFormSimpleRouteImport } from './routes/demo/form.simple'
 import { Route as DemoFormAddressRouteImport } from './routes/demo/form.address'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -61,6 +62,11 @@ const AdminAlliancesIndexRoute = AdminAlliancesIndexRouteImport.update({
   path: '/alliances/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminAirlinesIndexRoute = AdminAirlinesIndexRouteImport.update({
+  id: '/airlines/',
+  path: '/airlines/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const DemoFormSimpleRoute = DemoFormSimpleRouteImport.update({
   id: '/demo/form/simple',
   path: '/demo/form/simple',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
+  '/admin/airlines/': typeof AdminAirlinesIndexRoute
   '/admin/alliances/': typeof AdminAlliancesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
+  '/admin/airlines': typeof AdminAirlinesIndexRoute
   '/admin/alliances': typeof AdminAlliancesIndexRoute
 }
 export interface FileRoutesById {
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
+  '/admin/airlines/': typeof AdminAirlinesIndexRoute
   '/admin/alliances/': typeof AdminAlliancesIndexRoute
 }
 export interface FileRouteTypes {
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/demo/form/address'
     | '/demo/form/simple'
+    | '/admin/airlines/'
     | '/admin/alliances/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/demo/form/address'
     | '/demo/form/simple'
+    | '/admin/airlines'
     | '/admin/alliances'
   id:
     | '__root__'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/demo/form/address'
     | '/demo/form/simple'
+    | '/admin/airlines/'
     | '/admin/alliances/'
   fileRoutesById: FileRoutesById
 }
@@ -227,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAlliancesIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/airlines/': {
+      id: '/admin/airlines/'
+      path: '/airlines'
+      fullPath: '/admin/airlines/'
+      preLoaderRoute: typeof AdminAirlinesIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/demo/form/simple': {
       id: '/demo/form/simple'
       path: '/demo/form/simple'
@@ -253,11 +272,13 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminAirlinesIndexRoute: typeof AdminAirlinesIndexRoute
   AdminAlliancesIndexRoute: typeof AdminAlliancesIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
+  AdminAirlinesIndexRoute: AdminAirlinesIndexRoute,
   AdminAlliancesIndexRoute: AdminAlliancesIndexRoute,
 }
 
