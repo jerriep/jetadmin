@@ -18,6 +18,18 @@ function Component() {
 
 For **pagination**, use TanStack Router search params (`validateSearch`) — the loader re-runs automatically on param changes and caches per param combination. Only reach for TanStack Query if a specific UX requirement can't be met by the loader pattern.
 
+## Vite
+
+When installing packages that bring in transitive CJS dependencies, Vite may silently fail to pre-bundle them. Symptom: hydration dies entirely — clicks work (SSR HTML is fine) but `useEffect` never runs and `console.log` in the render body never appears in the browser console. Fix by adding the offending subpath to `optimizeDeps.include` in `vite.config.ts`, then do a full dev server restart.
+
+Current entries needed for the TanStack hotkeys ecosystem:
+
+```ts
+optimizeDeps: {
+  include: ['use-sync-external-store/shim/with-selector'],
+}
+```
+
 ## Component conventions
 
 ### `src/components/ui/`
