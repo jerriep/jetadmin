@@ -1,5 +1,5 @@
-import { useState, useEffect, type FormEvent } from "react";
 import { createServerFn } from "@tanstack/react-start";
+import { useForm } from "@tanstack/react-form";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/db/index";
@@ -18,19 +18,22 @@ import {
 
 export type Alliance = typeof alliance.$inferSelect;
 
-const allianceFormSchema = z.object({
-  code: z.string().min(1, "Code is required"),
-  name: z.string().min(1, "Name is required"),
-  active: z.boolean(),
-  allowInQuery: z.boolean(),
-  priorityInList: z.boolean(),
-});
+// ---- Validation schemas -----------------------------------------------------
 
-type AllianceFormData = z.infer<typeof allianceFormSchema>;
-type FormErrors = Partial<Record<keyof AllianceFormData, string>>;
+const codeSchema = z.string().min(1, "Code is required");
+const nameSchema = z.string().min(1, "Name is required");
+
+// ---- Server function --------------------------------------------------------
 
 const updateAlliance = createServerFn({ method: "POST" })
-  .inputValidator((data: { pk: string } & AllianceFormData) => data)
+  .inputValidator((data: {
+    pk: string;
+    code: string;
+    name: string;
+    active: boolean;
+    allowInQuery: boolean;
+    priorityInList: boolean;
+  }) => data)
   .handler(async ({ data }) => {
     await db
       .update(alliance)
@@ -44,15 +47,7 @@ const updateAlliance = createServerFn({ method: "POST" })
       .where(eq(alliance.pk, data.pk));
   });
 
-function toFormData(row: Alliance): AllianceFormData {
-  return {
-    code: row.code ?? "",
-    name: row.name ?? "",
-    active: row.active ?? false,
-    allowInQuery: row.allowInQuery ?? false,
-    priorityInList: row.priorityInList ?? false,
-  };
-}
+// ---- Component --------------------------------------------------------------
 
 export function EditAllianceSheet({
   alliance,
@@ -65,113 +60,145 @@ export function EditAllianceSheet({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
-  const [formData, setFormData] = useState<AllianceFormData>(() =>
-    alliance ? toFormData(alliance) : { code: "", name: "", active: false, allowInQuery: false, priorityInList: false }
-  );
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (alliance) {
-      setFormData(toFormData(alliance));
-      setErrors({});
-    }
-  }, [alliance]);
-
-  const setField = <K extends keyof AllianceFormData>(key: K, value: AllianceFormData[K]) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: undefined }));
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    const result = allianceFormSchema.safeParse(formData);
-    if (!result.success) {
-      const flat = result.error.flatten().fieldErrors;
-      setErrors({ code: flat.code?.[0], name: flat.name?.[0] });
-      return;
-    }
-    setSaving(true);
-    try {
-      await updateAlliance({ data: { pk: alliance!.pk, ...result.data } });
+  const form = useForm({
+    defaultValues: {
+      code: alliance?.code ?? "",
+      name: alliance?.name ?? "",
+      active: alliance?.active ?? false,
+      allowInQuery: alliance?.allowInQuery ?? false,
+      priorityInList: alliance?.priorityInList ?? false,
+    },
+    onSubmit: async ({ value }) => {
+      await updateAlliance({ data: { pk: alliance!.pk, ...value } });
       onSaved();
       onOpenChange(false);
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+  });
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex flex-col p-0">
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+        <form
+          onSubmit={(e) => { e.preventDefault(); form.handleSubmit(); }}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
           <SheetHeader className="border-b px-6 py-4">
             <SheetTitle>Edit Alliance</SheetTitle>
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto px-6 py-5">
             <FieldGroup>
-              <Field data-invalid={!!errors.code || undefined}>
-                <FieldLabel htmlFor="alliance-code">Code</FieldLabel>
-                <Input
-                  id="alliance-code"
-                  value={formData.code}
-                  onChange={(e) => setField("code", e.target.value)}
-                />
-                <FieldError errors={errors.code ? [{ message: errors.code }] : []} />
-              </Field>
 
-              <Field data-invalid={!!errors.name || undefined}>
-                <FieldLabel htmlFor="alliance-name">Name</FieldLabel>
-                <Input
-                  id="alliance-name"
-                  value={formData.name}
-                  onChange={(e) => setField("name", e.target.value)}
-                />
-                <FieldError errors={errors.name ? [{ message: errors.name }] : []} />
-              </Field>
+              <form.Field
+                name="code"
+                validators={{
+                  onChange: ({ value }) => {
+                    const result = codeSchema.safeParse(value);
+                    return result.success ? undefined : result.error.issues[0].message;
+                  },
+                }}
+              >
+                {(field) => (
+                  <Field data-invalid={field.state.meta.isTouched && field.state.meta.errors.length > 0 || undefined}>
+                    <FieldLabel htmlFor="alliance-code">Code</FieldLabel>
+                    <Input
+                      id="alliance-code"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                    />
+                    {field.state.meta.isTouched && (
+                      <FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+                    )}
+                  </Field>
+                )}
+              </form.Field>
 
-              <Field orientation="horizontal">
-                <FieldLabel htmlFor="alliance-active">Active</FieldLabel>
-                <Switch
-                  id="alliance-active"
-                  checked={formData.active}
-                  onCheckedChange={(checked) => setField("active", checked)}
-                />
-              </Field>
+              <form.Field
+                name="name"
+                validators={{
+                  onChange: ({ value }) => {
+                    const result = nameSchema.safeParse(value);
+                    return result.success ? undefined : result.error.issues[0].message;
+                  },
+                }}
+              >
+                {(field) => (
+                  <Field data-invalid={field.state.meta.isTouched && field.state.meta.errors.length > 0 || undefined}>
+                    <FieldLabel htmlFor="alliance-name">Name</FieldLabel>
+                    <Input
+                      id="alliance-name"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                    />
+                    {field.state.meta.isTouched && (
+                      <FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+                    )}
+                  </Field>
+                )}
+              </form.Field>
 
-              <Field orientation="horizontal">
-                <FieldLabel htmlFor="alliance-allow-in-query">Allow in Query</FieldLabel>
-                <Switch
-                  id="alliance-allow-in-query"
-                  checked={formData.allowInQuery}
-                  onCheckedChange={(checked) => setField("allowInQuery", checked)}
-                />
-              </Field>
+              <form.Field name="active">
+                {(field) => (
+                  <Field orientation="horizontal">
+                    <FieldLabel htmlFor="alliance-active">Active</FieldLabel>
+                    <Switch
+                      id="alliance-active"
+                      checked={field.state.value}
+                      onCheckedChange={(checked) => field.handleChange(checked)}
+                    />
+                  </Field>
+                )}
+              </form.Field>
 
-              <Field orientation="horizontal">
-                <FieldLabel htmlFor="alliance-priority-in-list">Priority in List</FieldLabel>
-                <Switch
-                  id="alliance-priority-in-list"
-                  checked={formData.priorityInList}
-                  onCheckedChange={(checked) => setField("priorityInList", checked)}
-                />
-              </Field>
+              <form.Field name="allowInQuery">
+                {(field) => (
+                  <Field orientation="horizontal">
+                    <FieldLabel htmlFor="alliance-allow-in-query">Allow in Query</FieldLabel>
+                    <Switch
+                      id="alliance-allow-in-query"
+                      checked={field.state.value}
+                      onCheckedChange={(checked) => field.handleChange(checked)}
+                    />
+                  </Field>
+                )}
+              </form.Field>
+
+              <form.Field name="priorityInList">
+                {(field) => (
+                  <Field orientation="horizontal">
+                    <FieldLabel htmlFor="alliance-priority-in-list">Priority in List</FieldLabel>
+                    <Switch
+                      id="alliance-priority-in-list"
+                      checked={field.state.value}
+                      onCheckedChange={(checked) => field.handleChange(checked)}
+                    />
+                  </Field>
+                )}
+              </form.Field>
+
             </FieldGroup>
           </div>
 
           <SheetFooter className="border-t px-6 py-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Save changes"}
-            </Button>
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Saving…" : "Save changes"}
+                  </Button>
+                </>
+              )}
+            </form.Subscribe>
           </SheetFooter>
         </form>
       </SheetContent>

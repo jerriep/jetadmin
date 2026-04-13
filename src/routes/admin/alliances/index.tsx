@@ -85,6 +85,7 @@ function RouteComponent() {
     <>
       <DataTable table={table} mustDisplayFooter={false} />
       <EditAllianceSheet
+        key={editingAlliance?.pk ?? ""}
         alliance={editingAlliance}
         open={editingAlliance !== null}
         onOpenChange={(open) => { if (!open) setEditingAlliance(null); }}
