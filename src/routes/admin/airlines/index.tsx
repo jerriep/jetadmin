@@ -69,7 +69,7 @@ const getAirlines = createServerFn({ method: "GET" })
 
 export const Route = createFileRoute("/admin/airlines/")({
   component: RouteComponent,
-  validateSearch: (search) => searchSchema.parse(search),
+  validateSearch: searchSchema,
   loaderDeps: ({ search }) => ({
     status: search.status,
     page: search.page,
