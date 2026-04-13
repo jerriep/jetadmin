@@ -62,7 +62,7 @@ export function DataTable<TData>({ table, mustDisplayFooter = true }: {
         <TableBody>
           {tableRows.length > 0 ? (
             tableRows.map((row) => (
-              <TableRow key={row.id} className="cursor-pointer">
+              <TableRow key={row.id} className="hover:bg-transparent">
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

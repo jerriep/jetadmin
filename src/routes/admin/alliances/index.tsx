@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { asc } from "drizzle-orm";
 import { type ColumnDef, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 import { db } from "#/db/index";
 import { alliance } from "#/db/schema/schema";
-import { ChevronRightIcon } from "lucide-react";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { DataTable } from "@/components/data-table";
+import { Button } from "@/components/ui/button";
 
 type Alliance = typeof alliance.$inferSelect;
 
@@ -49,8 +50,23 @@ const columns: ColumnDef<Alliance>[] = [
   },
   {
     id: "actions",
-    header: () => null,
-    cell: () => <ChevronRightIcon className="size-4 text-muted-foreground" />,
+    header: "",
+    cell: () => (
+      <div className="flex items-center justify-end gap-1">
+        <Button variant="outline" size="sm">
+          <PencilIcon className="size-4 shrink-0" />
+          Edit
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label="Delete"
+          className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2Icon className="size-4 shrink-0" />
+        </Button>
+      </div>
+    ),
   },
 ];
 

@@ -6,7 +6,6 @@ import { type ColumnDef, type Updater, type PaginationState, getCoreRowModel, us
 import { db } from "#/db/index";
 import { airline } from "#/db/schema/schema";
 import { Input } from "@/components/ui/input";
-import { ChevronRightIcon } from "lucide-react";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { DataTable } from "@/components/data-table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -95,11 +94,6 @@ const columns: ColumnDef<AirlineRow>[] = [
     cell: ({ getValue }) => (
       <BooleanBadgeCell value={getValue<boolean>()} trueLabel="Active" falseLabel="Inactive" />
     ),
-  },
-  {
-    id: "actions",
-    header: () => null,
-    cell: () => <ChevronRightIcon className="size-4 text-muted-foreground" />,
   },
 ];
 
