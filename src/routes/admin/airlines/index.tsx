@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { and, asc, count, eq, ilike, or } from "drizzle-orm";
-import { type ColumnDef, type Row, type Updater, type PaginationState, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { type ColumnDef, type Updater, type PaginationState, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { db } from "#/db/index";
 import { airline } from "#/db/schema/schema";
 import {
@@ -136,14 +136,14 @@ function getPageNumbers(page: number, totalPages: number): (number | "ellipsis")
   return [1, "ellipsis", page - 1, page, page + 1, "ellipsis", totalPages];
 }
 
-function TableSection({ table, tableRows, columns }: {
+function TableSection({ table }: {
   table: ReturnType<typeof useReactTable<AirlineRow>>;
-  tableRows: Row<AirlineRow>[];
-  columns: ColumnDef<AirlineRow>[];
 }) {
   const { pageIndex, pageSize } = table.getState().pagination;
   const page = pageIndex + 1;
   const totalPages = table.getPageCount();
+  const tableRows = table.getRowModel().rows;
+  const colSpan = table.getVisibleFlatColumns().length;
 
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -172,7 +172,7 @@ function TableSection({ table, tableRows, columns }: {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={columns.length} className="py-8 text-center text-muted-foreground">
+              <TableCell colSpan={colSpan} className="py-8 text-center text-muted-foreground">
                 No airlines found.
               </TableCell>
             </TableRow>
@@ -180,7 +180,7 @@ function TableSection({ table, tableRows, columns }: {
         </TableBody>
         <TableFooter>
           <TableRow>
-            <TableCell colSpan={columns.length} className="bg-background px-4 py-2">
+            <TableCell colSpan={colSpan} className="bg-background px-4 py-2">
               <div className="flex items-center justify-between gap-4">
                 <Field orientation="horizontal" className="w-fit">
                   <FieldLabel htmlFor="page-size">Rows per page</FieldLabel>
@@ -257,8 +257,6 @@ function RouteComponent() {
     },
   });
 
-  const tableRows = table.getRowModel().rows;
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
@@ -281,7 +279,7 @@ function RouteComponent() {
           className="max-w-xs"
         />
       </div>
-      <TableSection table={table} tableRows={tableRows} columns={columns} />
+      <TableSection table={table} />
     </div>
   );
 }
