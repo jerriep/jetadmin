@@ -6,7 +6,7 @@ import { db } from "#/db/index";
 import { alliance } from "#/db/schema/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel, FieldError, FieldGroup } from "@/components/ui/field";
 import {
   Sheet,
@@ -134,12 +134,12 @@ export function EditAllianceSheet({
               <form.Field name="active">
                 {(field) => (
                   <Field orientation="horizontal">
-                    <FieldLabel htmlFor="alliance-active">Active</FieldLabel>
-                    <Switch
+                    <Checkbox
                       id="alliance-active"
                       checked={field.state.value}
                       onCheckedChange={(checked) => field.handleChange(checked)}
                     />
+                    <FieldLabel htmlFor="alliance-active">Active</FieldLabel>
                   </Field>
                 )}
               </form.Field>
@@ -147,12 +147,12 @@ export function EditAllianceSheet({
               <form.Field name="allowInQuery">
                 {(field) => (
                   <Field orientation="horizontal">
-                    <FieldLabel htmlFor="alliance-allow-in-query">Allow in Query</FieldLabel>
-                    <Switch
+                    <Checkbox
                       id="alliance-allow-in-query"
                       checked={field.state.value}
                       onCheckedChange={(checked) => field.handleChange(checked)}
                     />
+                    <FieldLabel htmlFor="alliance-allow-in-query">Allow in Query</FieldLabel>
                   </Field>
                 )}
               </form.Field>
@@ -160,12 +160,12 @@ export function EditAllianceSheet({
               <form.Field name="priorityInList">
                 {(field) => (
                   <Field orientation="horizontal">
-                    <FieldLabel htmlFor="alliance-priority-in-list">Priority in List</FieldLabel>
-                    <Switch
+                    <Checkbox
                       id="alliance-priority-in-list"
                       checked={field.state.value}
                       onCheckedChange={(checked) => field.handleChange(checked)}
                     />
+                    <FieldLabel htmlFor="alliance-priority-in-list">Priority in List</FieldLabel>
                   </Field>
                 )}
               </form.Field>
