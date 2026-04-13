@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { db } from "#/db/index";
 import { airline } from "#/db/schema/schema";
@@ -14,16 +14,36 @@ import {
 } from "@/components/ui/table";
 import { ChevronRightIcon } from "lucide-react";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type AirlineRow = typeof airline.$inferSelect;
+type StatusFilter = "all" | "active" | "inactive";
 
-const getAirlines = createServerFn({ method: "GET" }).handler(async () => {
-  return await db.select().from(airline).orderBy(asc(airline.name));
-});
+const getAirlines = createServerFn({ method: "GET" })
+  .inputValidator((data: { status: StatusFilter }) => data)
+  .handler(async ({ data: { status } }) => {
+    return await db
+      .select()
+      .from(airline)
+      .where(
+        status === "active"
+          ? eq(airline.active, true)
+          : status === "inactive"
+            ? eq(airline.active, false)
+            : undefined,
+      )
+      .orderBy(asc(airline.name));
+  });
 
 export const Route = createFileRoute("/admin/airlines/")({
   component: RouteComponent,
-  loader: async () => await getAirlines(),
+  validateSearch: (search): { status: StatusFilter } => ({
+    status: (["all", "active", "inactive"].includes(search.status as string)
+      ? search.status
+      : "all") as StatusFilter,
+  }),
+  loaderDeps: ({ search }) => ({ status: search.status }),
+  loader: async ({ deps }) => await getAirlines({ data: deps }),
 });
 
 const columns: ColumnDef<AirlineRow>[] = [
@@ -42,9 +62,7 @@ const columns: ColumnDef<AirlineRow>[] = [
     accessorKey: "code",
     header: "IATA",
     cell: ({ getValue }) => (
-      <span className="tabular-nums text-muted-foreground">
-        {getValue<string | null>() ?? "—"}
-      </span>
+      <span className="tabular-nums text-muted-foreground">{getValue<string | null>() ?? "—"}</span>
     ),
   },
   {
@@ -67,6 +85,8 @@ const columns: ColumnDef<AirlineRow>[] = [
 
 function RouteComponent() {
   const data = Route.useLoaderData();
+  const { status } = Route.useSearch();
+  const navigate = useNavigate();
 
   const table = useReactTable({
     data,
@@ -77,39 +97,56 @@ function RouteComponent() {
   const rows = table.getRowModel().rows;
 
   return (
-    <Table>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id} className="whitespace-nowrap">
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(header.column.columnDef.header, header.getContext())}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {rows.length > 0 ? (
-          rows.map((row) => (
-            <TableRow key={row.id} className="cursor-pointer">
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
+    <div className="flex flex-col gap-4">
+      <Tabs
+        value={status}
+        onValueChange={(value) =>
+          navigate({ to: "/admin/airlines", search: { status: value as StatusFilter } })
+        }
+      >
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="inactive">Inactive</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead key={header.id} className="whitespace-nowrap">
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(header.column.columnDef.header, header.getContext())}
+                </TableHead>
               ))}
             </TableRow>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell colSpan={columns.length} className="py-8 text-center text-muted-foreground">
-              No airlines found.
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {rows.length > 0 ? (
+            rows.map((row) => (
+              <TableRow key={row.id} className="cursor-pointer">
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell
+                colSpan={columns.length}
+                className="py-8 text-center text-muted-foreground"
+              >
+                No airlines found.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
