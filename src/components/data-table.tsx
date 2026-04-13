@@ -35,8 +35,9 @@ function getPageNumbers(page: number, totalPages: number): (number | "ellipsis")
   return [1, "ellipsis", page - 1, page, page + 1, "ellipsis", totalPages];
 }
 
-export function DataTable<TData>({ table }: {
+export function DataTable<TData>({ table, mustDisplayFooter = true }: {
   table: ReturnType<typeof useReactTable<TData>>;
+  mustDisplayFooter?: boolean;
 }) {
   const { pageIndex, pageSize } = table.getState().pagination;
   const page = pageIndex + 1;
@@ -77,7 +78,7 @@ export function DataTable<TData>({ table }: {
             </TableRow>
           )}
         </TableBody>
-        <TableFooter>
+        {mustDisplayFooter && <TableFooter>
           <TableRow>
             <TableCell colSpan={colSpan} className="bg-background px-4 py-2">
               <div className="flex items-center justify-between gap-4">
@@ -112,7 +113,7 @@ export function DataTable<TData>({ table }: {
               </div>
             </TableCell>
           </TableRow>
-        </TableFooter>
+        </TableFooter>}
       </Table>
     </div>
   );
