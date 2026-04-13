@@ -1,13 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import { useForm } from "@tanstack/react-form";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/db/index";
 import { alliance } from "#/db/schema/schema";
+import { useAppForm } from "#/components/form/form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldLabel, FieldError, FieldGroup } from "@/components/ui/field";
+import { FieldGroup } from "@/components/ui/field";
 import {
   Sheet,
   SheetContent,
@@ -65,16 +63,16 @@ export function EditAllianceSheet({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
-  const form = useForm({
+  const form = useAppForm({
+    validators: {
+      onChange: allianceFormSchema,
+    },
     defaultValues: {
       code: alliance?.code ?? "",
       name: alliance?.name ?? "",
       active: alliance?.active ?? false,
       allowInQuery: alliance?.allowInQuery ?? false,
       priorityInList: alliance?.priorityInList ?? false,
-    },
-    validators: {
-      onChange: allianceFormSchema,
     },
     onSubmit: async ({ value }) => {
       await updateAlliance({ data: { pk: alliance!.pk, ...value } });
@@ -96,80 +94,25 @@ export function EditAllianceSheet({
 
           <div className="flex-1 overflow-y-auto px-6 py-5">
             <FieldGroup>
+              <form.AppField name="code">
+                {(field) => <field.InputField label="Code" id="alliance-code" />}
+              </form.AppField>
 
-              <form.Field name="code">
-                {(field) => (
-                  <Field data-invalid={field.state.meta.isTouched && field.state.meta.errors.length > 0 || undefined}>
-                    <FieldLabel htmlFor="alliance-code">Code</FieldLabel>
-                    <Input
-                      id="alliance-code"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                    />
-                    {field.state.meta.isTouched && (
-                      <FieldError errors={field.state.meta.errors.map((e) => ({ message: (e as { message: string }).message }))} />
-                    )}
-                  </Field>
-                )}
-              </form.Field>
+              <form.AppField name="name">
+                {(field) => <field.InputField label="Name" id="alliance-name" />}
+              </form.AppField>
 
-              <form.Field name="name">
-                {(field) => (
-                  <Field data-invalid={field.state.meta.isTouched && field.state.meta.errors.length > 0 || undefined}>
-                    <FieldLabel htmlFor="alliance-name">Name</FieldLabel>
-                    <Input
-                      id="alliance-name"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                    />
-                    {field.state.meta.isTouched && (
-                      <FieldError errors={field.state.meta.errors.map((e) => ({ message: (e as { message: string }).message }))} />
-                    )}
-                  </Field>
-                )}
-              </form.Field>
+              <form.AppField name="active">
+                {(field) => <field.CheckboxField label="Active" id="alliance-active" />}
+              </form.AppField>
 
-              <form.Field name="active">
-                {(field) => (
-                  <Field orientation="horizontal">
-                    <Checkbox
-                      id="alliance-active"
-                      checked={field.state.value}
-                      onCheckedChange={(checked) => field.handleChange(checked)}
-                    />
-                    <FieldLabel htmlFor="alliance-active">Active</FieldLabel>
-                  </Field>
-                )}
-              </form.Field>
+              <form.AppField name="allowInQuery">
+                {(field) => <field.CheckboxField label="Allow in Query" id="alliance-allow-in-query" />}
+              </form.AppField>
 
-              <form.Field name="allowInQuery">
-                {(field) => (
-                  <Field orientation="horizontal">
-                    <Checkbox
-                      id="alliance-allow-in-query"
-                      checked={field.state.value}
-                      onCheckedChange={(checked) => field.handleChange(checked)}
-                    />
-                    <FieldLabel htmlFor="alliance-allow-in-query">Allow in Query</FieldLabel>
-                  </Field>
-                )}
-              </form.Field>
-
-              <form.Field name="priorityInList">
-                {(field) => (
-                  <Field orientation="horizontal">
-                    <Checkbox
-                      id="alliance-priority-in-list"
-                      checked={field.state.value}
-                      onCheckedChange={(checked) => field.handleChange(checked)}
-                    />
-                    <FieldLabel htmlFor="alliance-priority-in-list">Priority in List</FieldLabel>
-                  </Field>
-                )}
-              </form.Field>
-
+              <form.AppField name="priorityInList">
+                {(field) => <field.CheckboxField label="Priority in List" id="alliance-priority-in-list" />}
+              </form.AppField>
             </FieldGroup>
           </div>
 

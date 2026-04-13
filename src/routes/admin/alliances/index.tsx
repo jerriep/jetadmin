@@ -26,26 +26,28 @@ function RouteComponent() {
   const [editingAlliance, setEditingAlliance] = useState<Alliance | null>(null);
 
   const columns: ColumnDef<Alliance>[] = [
-    {
-      accessorKey: "code",
-      header: "Code",
-    },
-    {
-      accessorKey: "name",
-      header: "Name",
-    },
+    { accessorKey: "code", header: "Code" },
+    { accessorKey: "name", header: "Name" },
     {
       accessorKey: "active",
       header: "Active",
       cell: ({ getValue }) => (
-        <BooleanBadgeCell value={getValue<boolean | null>()} trueLabel="Active" falseLabel="Inactive" />
+        <BooleanBadgeCell
+          value={getValue<boolean | null>()}
+          trueLabel="Active"
+          falseLabel="Inactive"
+        />
       ),
     },
     {
       accessorKey: "allowInQuery",
       header: "Allow in Query",
       cell: ({ getValue }) => (
-        <BooleanBadgeCell value={getValue<boolean | null>()} trueLabel="Allow" falseLabel="Disallow" />
+        <BooleanBadgeCell
+          value={getValue<boolean | null>()}
+          trueLabel="Allow"
+          falseLabel="Disallow"
+        />
       ),
     },
     {
@@ -88,7 +90,9 @@ function RouteComponent() {
         key={editingAlliance?.pk ?? ""}
         alliance={editingAlliance}
         open={editingAlliance !== null}
-        onOpenChange={(open) => { if (!open) setEditingAlliance(null); }}
+        onOpenChange={(open) => {
+          if (!open) setEditingAlliance(null);
+        }}
         onSaved={() => router.invalidate()}
       />
     </>
