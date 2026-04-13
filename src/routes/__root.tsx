@@ -34,7 +34,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         href: appCss,
       },
     ],
-
   }),
   shellComponent: RootDocument,
 });

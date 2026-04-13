@@ -5,7 +5,7 @@ import { db } from "#/db/index";
 import { alliance } from "#/db/schema/schema";
 import { useAppForm } from "#/components/form/form";
 import { Button } from "@/components/ui/button";
-import { FieldGroup } from "@/components/ui/field";
+import { FieldGroup, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export type Alliance = typeof alliance.$inferSelect;
@@ -89,29 +89,36 @@ export function AllianceSheet({
 
           <div className="flex-1 overflow-y-auto px-6 py-5">
             <FieldGroup>
-              <form.AppField name="code">
-                {(field) => <field.InputField label="Code" id="alliance-code" />}
-              </form.AppField>
-
-              <form.AppField name="name">
-                {(field) => <field.InputField label="Name" id="alliance-name" />}
-              </form.AppField>
-
-              <form.AppField name="active">
-                {(field) => <field.CheckboxField label="Active" id="alliance-active" />}
-              </form.AppField>
-
-              <form.AppField name="allowInQuery">
-                {(field) => (
-                  <field.CheckboxField label="Allow in query" id="alliance-allow-in-query" />
-                )}
-              </form.AppField>
-
-              <form.AppField name="priorityInList">
-                {(field) => (
-                  <field.CheckboxField label="Priority in list" id="alliance-priority-in-list" />
-                )}
-              </form.AppField>
+              <FieldSet>
+                <form.AppField name="code">
+                  {(field) => <field.InputField label="Code" id="alliance-code" />}
+                </form.AppField>
+                <form.AppField name="name">
+                  {(field) => <field.InputField label="Name" id="alliance-name" />}
+                </form.AppField>
+              </FieldSet>
+              <FieldSeparator />
+              <FieldSet>
+                <FieldLegend>Settings</FieldLegend>
+                <FieldGroup className="gap-3">
+                  <form.AppField name="active">
+                    {(field) => <field.CheckboxField label="Active" id="alliance-active" />}
+                  </form.AppField>
+                  <form.AppField name="allowInQuery">
+                    {(field) => (
+                      <field.CheckboxField label="Allow in query" id="alliance-allow-in-query" />
+                    )}
+                  </form.AppField>
+                  <form.AppField name="priorityInList">
+                    {(field) => (
+                      <field.CheckboxField
+                        label="Priority in list"
+                        id="alliance-priority-in-list"
+                      />
+                    )}
+                  </form.AppField>
+                </FieldGroup>
+              </FieldSet>
             </FieldGroup>
           </div>
 
