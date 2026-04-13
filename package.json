@@ -24,6 +24,7 @@
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-form": "latest",
     "@tanstack/react-hotkeys": "^0.9.1",
+    "@tanstack/react-pacer": "^0.21.1",
     "@tanstack/react-query": "latest",
     "@tanstack/react-query-devtools": "latest",
     "@tanstack/react-router": "latest",

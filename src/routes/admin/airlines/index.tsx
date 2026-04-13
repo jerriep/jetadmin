@@ -1,8 +1,8 @@
+import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { and, asc, count, eq, ilike, or } from "drizzle-orm";
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { useState } from "react";
 import { db } from "#/db/index";
 import { airline } from "#/db/schema/schema";
 import {
@@ -35,7 +35,7 @@ import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { z } from "zod";
 import { activeStatusFilterSchema, PAGE_SIZES, pageSizeSchema } from "@/schemas/filters";
-import { useDebounce } from "@/hooks/use-debounce";
+import { useDebouncedCallback } from "@tanstack/react-pacer";
 
 const searchSchema = z.object({
   status: activeStatusFilterSchema.default("all"),
@@ -133,12 +133,12 @@ function RouteComponent() {
   const totalPages = Math.ceil(total / pageSize);
 
   const [searchInput, setSearchInput] = useState(q);
-  const debouncedSearch = useDebounce(searchInput, 300);
 
-  // Sync debounced value to URL, resetting to page 1
-  if (debouncedSearch !== q) {
-    navigate({ to: "/admin/airlines", search: { status, page: 1, pageSize, q: debouncedSearch } });
-  }
+  const debouncedNavigate = useDebouncedCallback(
+    (value: string) =>
+      navigate({ to: "/admin/airlines", search: { status, page: 1, pageSize, q: value } }),
+    { wait: 300 },
+  );
 
   const table = useReactTable({
     data: rows,
@@ -169,7 +169,10 @@ function RouteComponent() {
         <Input
           placeholder="Search by name or IATA code…"
           value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            debouncedNavigate(e.target.value);
+          }}
           className="max-w-xs"
         />
       </div>
