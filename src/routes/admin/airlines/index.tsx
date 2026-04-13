@@ -19,18 +19,28 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { Field, FieldLabel } from "@/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ChevronRightIcon } from "lucide-react";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type AirlineRow = typeof airline.$inferSelect;
 type StatusFilter = "all" | "active" | "inactive";
+type PageSize = 10 | 25 | 50 | 100;
 
-const PAGE_SIZE = 25;
+const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
 
 const getAirlines = createServerFn({ method: "GET" })
-  .inputValidator((data: { status: StatusFilter; page: number }) => data)
-  .handler(async ({ data: { status, page } }) => {
+  .inputValidator((data: { status: StatusFilter; page: number; pageSize: PageSize }) => data)
+  .handler(async ({ data: { status, page, pageSize } }) => {
     const where =
       status === "active"
         ? eq(airline.active, true)
@@ -44,8 +54,8 @@ const getAirlines = createServerFn({ method: "GET" })
         .from(airline)
         .where(where)
         .orderBy(asc(airline.name))
-        .limit(PAGE_SIZE)
-        .offset((page - 1) * PAGE_SIZE),
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
       db.select({ total: count() }).from(airline).where(where),
     ]);
 
@@ -54,13 +64,16 @@ const getAirlines = createServerFn({ method: "GET" })
 
 export const Route = createFileRoute("/admin/airlines/")({
   component: RouteComponent,
-  validateSearch: (search): { status: StatusFilter; page: number } => ({
+  validateSearch: (search): { status: StatusFilter; page: number; pageSize: PageSize } => ({
     status: (["all", "active", "inactive"].includes(search.status as string)
       ? search.status
       : "all") as StatusFilter,
     page: typeof search.page === "number" && search.page > 0 ? Math.floor(search.page) : 1,
+    pageSize: (PAGE_SIZES.includes(search.pageSize as PageSize)
+      ? search.pageSize
+      : 25) as PageSize,
   }),
-  loaderDeps: ({ search }) => ({ status: search.status, page: search.page }),
+  loaderDeps: ({ search }) => ({ status: search.status, page: search.page, pageSize: search.pageSize }),
   loader: async ({ deps }) => await getAirlines({ data: deps }),
 });
 
@@ -103,9 +116,9 @@ const columns: ColumnDef<AirlineRow>[] = [
 
 function RouteComponent() {
   const { rows, total } = Route.useLoaderData();
-  const { status, page } = Route.useSearch();
+  const { status, page, pageSize } = Route.useSearch();
   const navigate = useNavigate();
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
 
   const table = useReactTable({
     data: rows,
@@ -120,7 +133,7 @@ function RouteComponent() {
       <Tabs
         value={status}
         onValueChange={(value) =>
-          navigate({ to: "/admin/airlines", search: { status: value as StatusFilter, page: 1 } })
+          navigate({ to: "/admin/airlines", search: { status: value as StatusFilter, page: 1, pageSize } })
         }
       >
         <TabsList>
@@ -166,35 +179,55 @@ function RouteComponent() {
           )}
         </TableBody>
       </Table>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Page {page} of {totalPages} ({total} airlines)
-          </p>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() =>
-                    navigate({ to: "/admin/airlines", search: { status, page: page - 1 } })
-                  }
-                  aria-disabled={page <= 1}
-                  className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() =>
-                    navigate({ to: "/admin/airlines", search: { status, page: page + 1 } })
-                  }
-                  aria-disabled={page >= totalPages}
-                  className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
+      <div className="flex items-center justify-between gap-4">
+        <Field orientation="horizontal" className="w-fit">
+          <FieldLabel htmlFor="select-rows-per-page">Rows per page</FieldLabel>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) =>
+              navigate({
+                to: "/admin/airlines",
+                search: { status, page: 1, pageSize: Number(value) as PageSize },
+              })
+            }
+          >
+            <SelectTrigger className="w-20" id="select-rows-per-page">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start">
+              <SelectGroup>
+                {PAGE_SIZES.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Pagination className="mx-0 w-auto">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() =>
+                  navigate({ to: "/admin/airlines", search: { status, page: page - 1, pageSize } })
+                }
+                aria-disabled={page <= 1}
+                className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationNext
+                onClick={() =>
+                  navigate({ to: "/admin/airlines", search: { status, page: page + 1, pageSize } })
+                }
+                aria-disabled={page >= totalPages}
+                className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
     </div>
   );
 }
