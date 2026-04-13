@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, ilike, or } from "drizzle-orm";
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { useState } from "react";
 import { db } from "#/db/index";
 import { airline } from "#/db/schema/schema";
 import {
@@ -28,16 +29,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { ChevronRightIcon } from "lucide-react";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { z } from "zod";
 import { activeStatusFilterSchema, PAGE_SIZES, pageSizeSchema } from "@/schemas/filters";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const searchSchema = z.object({
   status: activeStatusFilterSchema.default("all"),
   page: z.number().int().positive().default(1),
   pageSize: pageSizeSchema.default(25),
+  q: z.string().default(""),
 });
 
 type SearchParams = z.infer<typeof searchSchema>;
@@ -45,13 +49,19 @@ type AirlineRow = typeof airline.$inferSelect;
 
 const getAirlines = createServerFn({ method: "GET" })
   .inputValidator((data: SearchParams) => data)
-  .handler(async ({ data: { status, page, pageSize } }) => {
-    const where =
+  .handler(async ({ data: { status, page, pageSize, q } }) => {
+    const statusFilter =
       status === "active"
         ? eq(airline.active, true)
         : status === "inactive"
           ? eq(airline.active, false)
           : undefined;
+
+    const searchFilter = q
+      ? or(ilike(airline.name, `%${q}%`), ilike(airline.code, `%${q}%`))
+      : undefined;
+
+    const where = and(statusFilter, searchFilter);
 
     const [rows, [{ total }]] = await Promise.all([
       db
@@ -74,6 +84,7 @@ export const Route = createFileRoute("/admin/airlines/")({
     status: search.status,
     page: search.page,
     pageSize: search.pageSize,
+    q: search.q,
   }),
   loader: async ({ deps }) => await getAirlines({ data: deps }),
 });
@@ -117,9 +128,17 @@ const columns: ColumnDef<AirlineRow>[] = [
 
 function RouteComponent() {
   const { rows, total } = Route.useLoaderData();
-  const { status, page, pageSize } = Route.useSearch();
+  const { status, page, pageSize, q } = Route.useSearch();
   const navigate = useNavigate();
   const totalPages = Math.ceil(total / pageSize);
+
+  const [searchInput, setSearchInput] = useState(q);
+  const debouncedSearch = useDebounce(searchInput, 300);
+
+  // Sync debounced value to URL, resetting to page 1
+  if (debouncedSearch !== q) {
+    navigate({ to: "/admin/airlines", search: { status, page: 1, pageSize, q: debouncedSearch } });
+  }
 
   const table = useReactTable({
     data: rows,
@@ -131,21 +150,29 @@ function RouteComponent() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Tabs
-        value={status}
-        onValueChange={(value) =>
-          navigate({
-            to: "/admin/airlines",
-            search: { status: value as SearchParams["status"], page: 1, pageSize },
-          })
-        }
-      >
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="inactive">Inactive</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex items-center gap-4">
+        <Tabs
+          value={status}
+          onValueChange={(value) =>
+            navigate({
+              to: "/admin/airlines",
+              search: { status: value as SearchParams["status"], page: 1, pageSize, q },
+            })
+          }
+        >
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Input
+          placeholder="Search by name or IATA code…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="max-w-xs"
+        />
+      </div>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -191,7 +218,7 @@ function RouteComponent() {
             onValueChange={(value) =>
               navigate({
                 to: "/admin/airlines",
-                search: { status, page: 1, pageSize: Number(value) as SearchParams["pageSize"] },
+                search: { status, page: 1, pageSize: Number(value) as SearchParams["pageSize"], q },
               })
             }
           >
@@ -214,7 +241,7 @@ function RouteComponent() {
             <PaginationItem>
               <PaginationPrevious
                 onClick={() =>
-                  navigate({ to: "/admin/airlines", search: { status, page: page - 1, pageSize } })
+                  navigate({ to: "/admin/airlines", search: { status, page: page - 1, pageSize, q } })
                 }
                 aria-disabled={page <= 1}
                 className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
@@ -223,7 +250,7 @@ function RouteComponent() {
             <PaginationItem>
               <PaginationNext
                 onClick={() =>
-                  navigate({ to: "/admin/airlines", search: { status, page: page + 1, pageSize } })
+                  navigate({ to: "/admin/airlines", search: { status, page: page + 1, pageSize, q } })
                 }
                 aria-disabled={page >= totalPages}
                 className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
