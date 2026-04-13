@@ -1,8 +1,8 @@
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { and, asc, count, eq, ilike, or } from "drizzle-orm";
-import { type ColumnDef, type Row, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { type ColumnDef, type Row, type Updater, type PaginationState, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { db } from "#/db/index";
 import { airline } from "#/db/schema/schema";
 import {
@@ -136,12 +136,14 @@ function getPageNumbers(page: number, totalPages: number): (number | "ellipsis")
   return [1, "ellipsis", page - 1, page, page + 1, "ellipsis", totalPages];
 }
 
-function TableSection({ table, tableRows, columns, footer }: {
+function TableSection({ table, tableRows, columns }: {
   table: ReturnType<typeof useReactTable<AirlineRow>>;
   tableRows: Row<AirlineRow>[];
   columns: ColumnDef<AirlineRow>[];
-  footer?: ReactNode;
 }) {
+  const { pageIndex, pageSize } = table.getState().pagination;
+  const page = pageIndex + 1;
+  const totalPages = table.getPageCount();
 
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -176,15 +178,42 @@ function TableSection({ table, tableRows, columns, footer }: {
             </TableRow>
           )}
         </TableBody>
-        {footer && (
-          <TableFooter>
-            <TableRow>
-              <TableCell colSpan={columns.length} className="bg-background px-4 py-2">
-                {footer}
-              </TableCell>
-            </TableRow>
-          </TableFooter>
-        )}
+        <TableFooter>
+          <TableRow>
+            <TableCell colSpan={columns.length} className="bg-background px-4 py-2">
+              <div className="flex items-center justify-between gap-4">
+                <Field orientation="horizontal" className="w-fit">
+                  <FieldLabel htmlFor="page-size">Rows per page</FieldLabel>
+                  <Select value={String(pageSize)} onValueChange={(value) => table.setPageSize(Number(value))}>
+                    <SelectTrigger className="w-20" id="page-size"><SelectValue /></SelectTrigger>
+                    <SelectContent align="start">
+                      <SelectGroup>{PAGE_SIZES.map((size) => <SelectItem key={size} value={String(size)}>{size}</SelectItem>)}</SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Pagination className="mx-0 w-auto">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious onClick={() => table.previousPage()} aria-disabled={!table.getCanPreviousPage()} className={!table.getCanPreviousPage() ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                    </PaginationItem>
+                    {getPageNumbers(page, totalPages).map((p, i) =>
+                      p === "ellipsis" ? (
+                        <PaginationItem key={`ellipsis-${i}`}><PaginationEllipsis /></PaginationItem>
+                      ) : (
+                        <PaginationItem key={p}>
+                          <PaginationLink isActive={p === page} onClick={() => table.setPageIndex(p - 1)} className="cursor-pointer">{p}</PaginationLink>
+                        </PaginationItem>
+                      )
+                    )}
+                    <PaginationItem>
+                      <PaginationNext onClick={() => table.nextPage()} aria-disabled={!table.getCanNextPage()} className={!table.getCanNextPage() ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            </TableCell>
+          </TableRow>
+        </TableFooter>
       </Table>
     </div>
   );
@@ -208,42 +237,27 @@ function RouteComponent() {
     data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    manualPagination: true,
+    pageCount: totalPages,
+    state: {
+      pagination: { pageIndex: page - 1, pageSize },
+    },
+    onPaginationChange: (updater: Updater<PaginationState>) => {
+      const prev = { pageIndex: page - 1, pageSize };
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      navigate({
+        to: "/admin/airlines",
+        search: {
+          status,
+          page: next.pageIndex + 1,
+          pageSize: next.pageSize as SearchParams["pageSize"],
+          q,
+        },
+      });
+    },
   });
 
   const tableRows = table.getRowModel().rows;
-
-  const paginationFooter = (
-    <div className="flex items-center justify-between gap-4">
-      <Field orientation="horizontal" className="w-fit">
-        <FieldLabel htmlFor="page-size">Rows per page</FieldLabel>
-        <Select value={String(pageSize)} onValueChange={(value) => navigate({ to: "/admin/airlines", search: { status, page: 1, pageSize: Number(value) as SearchParams["pageSize"], q } })}>
-          <SelectTrigger className="w-20" id="page-size"><SelectValue /></SelectTrigger>
-          <SelectContent align="start">
-            <SelectGroup>{PAGE_SIZES.map((size) => <SelectItem key={size} value={String(size)}>{size}</SelectItem>)}</SelectGroup>
-          </SelectContent>
-        </Select>
-      </Field>
-      <Pagination className="mx-0 w-auto">
-        <PaginationContent>
-          <PaginationItem>
-            <PaginationPrevious onClick={() => navigate({ to: "/admin/airlines", search: { status, page: page - 1, pageSize, q } })} aria-disabled={page <= 1} className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
-          </PaginationItem>
-          {getPageNumbers(page, totalPages).map((p, i) =>
-            p === "ellipsis" ? (
-              <PaginationItem key={`ellipsis-${i}`}><PaginationEllipsis /></PaginationItem>
-            ) : (
-              <PaginationItem key={p}>
-                <PaginationLink isActive={p === page} onClick={() => navigate({ to: "/admin/airlines", search: { status, page: p, pageSize, q } })} className="cursor-pointer">{p}</PaginationLink>
-              </PaginationItem>
-            )
-          )}
-          <PaginationItem>
-            <PaginationNext onClick={() => navigate({ to: "/admin/airlines", search: { status, page: page + 1, pageSize, q } })} aria-disabled={page >= totalPages} className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
-    </div>
-  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -267,7 +281,7 @@ function RouteComponent() {
           className="max-w-xs"
         />
       </div>
-      <TableSection table={table} tableRows={tableRows} columns={columns} footer={paginationFooter} />
+      <TableSection table={table} tableRows={tableRows} columns={columns} />
     </div>
   );
 }
