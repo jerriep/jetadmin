@@ -1,29 +1,38 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { asc } from "drizzle-orm";
-import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { asc, count } from "drizzle-orm";
+import { type ColumnDef, type Updater, type PaginationState, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { db } from "#/db/index";
 import { alliance } from "#/db/schema/schema";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { ChevronRightIcon } from "lucide-react";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
+import { DataTable } from "@/components/data-table";
+import { z } from "zod";
+import { pageSizeSchema } from "@/schemas/filters";
 
+const searchSchema = z.object({
+  page: z.number().int().positive().default(1),
+  pageSize: pageSizeSchema.default(25),
+});
+
+type SearchParams = z.infer<typeof searchSchema>;
 type Alliance = typeof alliance.$inferSelect;
 
-const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
-  return await db.select().from(alliance).orderBy(asc(alliance.name));
-});
+const getAlliances = createServerFn({ method: "GET" })
+  .inputValidator((data: SearchParams) => data)
+  .handler(async ({ data: { page, pageSize } }) => {
+    const [rows, [{ total }]] = await Promise.all([
+      db.select().from(alliance).orderBy(asc(alliance.name)).limit(pageSize).offset((page - 1) * pageSize),
+      db.select({ total: count() }).from(alliance),
+    ]);
+    return { rows, total };
+  });
 
 export const Route = createFileRoute("/admin/alliances/")({
   component: RouteComponent,
-  loader: async () => await getAlliances(),
+  validateSearch: searchSchema,
+  loaderDeps: ({ search }) => ({ page: search.page, pageSize: search.pageSize }),
+  loader: async ({ deps }) => await getAlliances({ data: deps }),
 });
 
 const columns: ColumnDef<Alliance>[] = [
@@ -46,11 +55,7 @@ const columns: ColumnDef<Alliance>[] = [
     accessorKey: "allowInQuery",
     header: "Allow in Query",
     cell: ({ getValue }) => (
-      <BooleanBadgeCell
-        value={getValue<boolean | null>()}
-        trueLabel="Allow"
-        falseLabel="Disallow"
-      />
+      <BooleanBadgeCell value={getValue<boolean | null>()} trueLabel="Allow" falseLabel="Disallow" />
     ),
   },
   {
@@ -66,50 +71,32 @@ const columns: ColumnDef<Alliance>[] = [
 ];
 
 function RouteComponent() {
-  const data = Route.useLoaderData();
+  const { rows, total } = Route.useLoaderData();
+  const { page, pageSize } = Route.useSearch();
+  const navigate = useNavigate();
+  const totalPages = Math.ceil(total / pageSize);
 
   const table = useReactTable({
-    data,
+    data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    manualPagination: true,
+    pageCount: totalPages,
+    state: {
+      pagination: { pageIndex: page - 1, pageSize },
+    },
+    onPaginationChange: (updater: Updater<PaginationState>) => {
+      const prev = { pageIndex: page - 1, pageSize };
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      navigate({
+        to: "/admin/alliances",
+        search: {
+          page: next.pageIndex + 1,
+          pageSize: next.pageSize as SearchParams["pageSize"],
+        },
+      });
+    },
   });
 
-  const rows = table.getRowModel().rows;
-
-  return (
-    <Table>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id}>
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(header.column.columnDef.header, header.getContext())}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {rows.length > 0 ? (
-          rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell colSpan={columns.length} className="py-8 text-center text-muted-foreground">
-              No alliances found.
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
-  );
+  return <DataTable table={table} />;
 }
