@@ -31,15 +31,20 @@ import {
 import { ChevronRightIcon } from "lucide-react";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { z } from "zod";
+import { activeStatusFilterSchema, PAGE_SIZES, pageSizeSchema } from "@/schemas/filters";
 
+const searchSchema = z.object({
+  status: activeStatusFilterSchema.default("all"),
+  page: z.number().int().positive().default(1),
+  pageSize: pageSizeSchema.default(25),
+});
+
+type SearchParams = z.infer<typeof searchSchema>;
 type AirlineRow = typeof airline.$inferSelect;
-type StatusFilter = "all" | "active" | "inactive";
-type PageSize = 10 | 25 | 50 | 100;
-
-const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
 
 const getAirlines = createServerFn({ method: "GET" })
-  .inputValidator((data: { status: StatusFilter; page: number; pageSize: PageSize }) => data)
+  .inputValidator((data: SearchParams) => data)
   .handler(async ({ data: { status, page, pageSize } }) => {
     const where =
       status === "active"
@@ -64,16 +69,12 @@ const getAirlines = createServerFn({ method: "GET" })
 
 export const Route = createFileRoute("/admin/airlines/")({
   component: RouteComponent,
-  validateSearch: (search): { status: StatusFilter; page: number; pageSize: PageSize } => ({
-    status: (["all", "active", "inactive"].includes(search.status as string)
-      ? search.status
-      : "all") as StatusFilter,
-    page: typeof search.page === "number" && search.page > 0 ? Math.floor(search.page) : 1,
-    pageSize: (PAGE_SIZES.includes(search.pageSize as PageSize)
-      ? search.pageSize
-      : 25) as PageSize,
+  validateSearch: (search) => searchSchema.parse(search),
+  loaderDeps: ({ search }) => ({
+    status: search.status,
+    page: search.page,
+    pageSize: search.pageSize,
   }),
-  loaderDeps: ({ search }) => ({ status: search.status, page: search.page, pageSize: search.pageSize }),
   loader: async ({ deps }) => await getAirlines({ data: deps }),
 });
 
@@ -133,7 +134,10 @@ function RouteComponent() {
       <Tabs
         value={status}
         onValueChange={(value) =>
-          navigate({ to: "/admin/airlines", search: { status: value as StatusFilter, page: 1, pageSize } })
+          navigate({
+            to: "/admin/airlines",
+            search: { status: value as SearchParams["status"], page: 1, pageSize },
+          })
         }
       >
         <TabsList>
@@ -187,7 +191,7 @@ function RouteComponent() {
             onValueChange={(value) =>
               navigate({
                 to: "/admin/airlines",
-                search: { status, page: 1, pageSize: Number(value) as PageSize },
+                search: { status, page: 1, pageSize: Number(value) as SearchParams["pageSize"] },
               })
             }
           >
