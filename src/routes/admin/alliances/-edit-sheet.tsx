@@ -18,10 +18,15 @@ import {
 
 export type Alliance = typeof alliance.$inferSelect;
 
-// ---- Validation schemas -----------------------------------------------------
+// ---- Validation schema ------------------------------------------------------
 
-const codeSchema = z.string().min(1, "Code is required");
-const nameSchema = z.string().min(1, "Name is required");
+const allianceFormSchema = z.object({
+  code: z.string().min(1, "Code is required"),
+  name: z.string().min(1, "Name is required"),
+  active: z.boolean(),
+  allowInQuery: z.boolean(),
+  priorityInList: z.boolean(),
+});
 
 // ---- Server function --------------------------------------------------------
 
@@ -68,6 +73,9 @@ export function EditAllianceSheet({
       allowInQuery: alliance?.allowInQuery ?? false,
       priorityInList: alliance?.priorityInList ?? false,
     },
+    validators: {
+      onChange: allianceFormSchema,
+    },
     onSubmit: async ({ value }) => {
       await updateAlliance({ data: { pk: alliance!.pk, ...value } });
       onSaved();
@@ -89,15 +97,7 @@ export function EditAllianceSheet({
           <div className="flex-1 overflow-y-auto px-6 py-5">
             <FieldGroup>
 
-              <form.Field
-                name="code"
-                validators={{
-                  onChange: ({ value }) => {
-                    const result = codeSchema.safeParse(value);
-                    return result.success ? undefined : result.error.issues[0].message;
-                  },
-                }}
-              >
+              <form.Field name="code">
                 {(field) => (
                   <Field data-invalid={field.state.meta.isTouched && field.state.meta.errors.length > 0 || undefined}>
                     <FieldLabel htmlFor="alliance-code">Code</FieldLabel>
@@ -108,21 +108,13 @@ export function EditAllianceSheet({
                       onBlur={field.handleBlur}
                     />
                     {field.state.meta.isTouched && (
-                      <FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+                      <FieldError errors={field.state.meta.errors.map((e) => ({ message: (e as { message: string }).message }))} />
                     )}
                   </Field>
                 )}
               </form.Field>
 
-              <form.Field
-                name="name"
-                validators={{
-                  onChange: ({ value }) => {
-                    const result = nameSchema.safeParse(value);
-                    return result.success ? undefined : result.error.issues[0].message;
-                  },
-                }}
-              >
+              <form.Field name="name">
                 {(field) => (
                   <Field data-invalid={field.state.meta.isTouched && field.state.meta.errors.length > 0 || undefined}>
                     <FieldLabel htmlFor="alliance-name">Name</FieldLabel>
@@ -133,7 +125,7 @@ export function EditAllianceSheet({
                       onBlur={field.handleBlur}
                     />
                     {field.state.meta.isTouched && (
-                      <FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+                      <FieldError errors={field.state.meta.errors.map((e) => ({ message: (e as { message: string }).message }))} />
                     )}
                   </Field>
                 )}
