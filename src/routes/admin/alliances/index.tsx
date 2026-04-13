@@ -3,13 +3,13 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { asc } from "drizzle-orm";
 import { type ColumnDef, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { db } from "#/db/index";
 import { alliance } from "#/db/schema/schema";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
-import { type Alliance, EditAllianceSheet } from "./-edit-sheet";
+import { type Alliance, AllianceSheet } from "./-edit-sheet";
 
 const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
   return await db.select().from(alliance).orderBy(asc(alliance.name));
@@ -23,7 +23,9 @@ export const Route = createFileRoute("/admin/alliances/")({
 function RouteComponent() {
   const data = Route.useLoaderData();
   const router = useRouter();
-  const [editingAlliance, setEditingAlliance] = useState<Alliance | null>(null);
+
+  // null = closed, "new" = create mode, Alliance = edit mode
+  const [sheetAlliance, setSheetAlliance] = useState<Alliance | "new" | null>(null);
 
   const columns: ColumnDef<Alliance>[] = [
     { accessorKey: "code", header: "Code" },
@@ -32,27 +34,19 @@ function RouteComponent() {
       accessorKey: "active",
       header: "Active",
       cell: ({ getValue }) => (
-        <BooleanBadgeCell
-          value={getValue<boolean | null>()}
-          trueLabel="Active"
-          falseLabel="Inactive"
-        />
+        <BooleanBadgeCell value={getValue<boolean | null>()} trueLabel="Active" falseLabel="Inactive" />
       ),
     },
     {
       accessorKey: "allowInQuery",
-      header: "Allow in Query",
+      header: "Allow in query",
       cell: ({ getValue }) => (
-        <BooleanBadgeCell
-          value={getValue<boolean | null>()}
-          trueLabel="Allow"
-          falseLabel="Disallow"
-        />
+        <BooleanBadgeCell value={getValue<boolean | null>()} trueLabel="Allow" falseLabel="Disallow" />
       ),
     },
     {
       accessorKey: "priorityInList",
-      header: "Priority in List",
+      header: "Priority in list",
       cell: ({ getValue }) => <BooleanBadgeCell value={getValue<boolean | null>()} />,
     },
     {
@@ -60,7 +54,7 @@ function RouteComponent() {
       header: "",
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
-          <Button variant="outline" size="sm" onClick={() => setEditingAlliance(row.original)}>
+          <Button variant="outline" size="sm" onClick={() => setSheetAlliance(row.original)}>
             <PencilIcon className="size-4 shrink-0" />
             Edit
           </Button>
@@ -83,16 +77,24 @@ function RouteComponent() {
     getCoreRowModel: getCoreRowModel(),
   });
 
+  const selectedAlliance = sheetAlliance === "new" ? null : sheetAlliance;
+
   return (
     <>
+      <div className="flex justify-end">
+        <Button onClick={() => setSheetAlliance("new")}>
+          <PlusIcon className="size-4 shrink-0" />
+          New alliance
+        </Button>
+      </div>
+
       <DataTable table={table} mustDisplayFooter={false} />
-      <EditAllianceSheet
-        key={editingAlliance?.pk ?? ""}
-        alliance={editingAlliance}
-        open={editingAlliance !== null}
-        onOpenChange={(open) => {
-          if (!open) setEditingAlliance(null);
-        }}
+
+      <AllianceSheet
+        key={sheetAlliance === "new" ? "new" : (sheetAlliance?.pk ?? "")}
+        alliance={selectedAlliance}
+        open={sheetAlliance !== null}
+        onOpenChange={(open) => { if (!open) setSheetAlliance(null); }}
         onSaved={() => router.invalidate()}
       />
     </>

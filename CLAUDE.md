@@ -53,3 +53,16 @@ import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 <TableCell><BooleanIconCell value={row.active} /></TableCell>
 <TableCell><BooleanBadgeCell value={row.allowInQuery} /></TableCell>
 ```
+
+## Text casing conventions
+
+| Context | Convention | Examples |
+|---|---|---|
+| Page titles, modal/sheet headings | Title Case | "Edit Alliance", "New Alliance" |
+| Table column headers | Sentence case | "Allow in query", "Priority in list" |
+| Form field labels | Sentence case | "Allow in query", "Priority in list" |
+| Button labels | Sentence case | "New alliance", "Save changes", "Add alliance" |
+| Navigation items | Title Case (product feature names) | "Airline Info CMS", "User Management" |
+| Badge / status text | Title Case | "Active", "Inactive", "Allow", "Disallow" |
+| Validation error messages | Sentence case, no trailing period | "Code is required" |
+| Placeholder text | Sentence case | "Search by name or IATA code…" |

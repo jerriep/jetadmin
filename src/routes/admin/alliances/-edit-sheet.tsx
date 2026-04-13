@@ -6,13 +6,7 @@ import { alliance } from "#/db/schema/schema";
 import { useAppForm } from "#/components/form/form";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
-import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export type Alliance = typeof alliance.$inferSelect;
 
@@ -26,33 +20,25 @@ const allianceFormSchema = z.object({
   priorityInList: z.boolean(),
 });
 
-// ---- Server function --------------------------------------------------------
+type AllianceFormValues = z.infer<typeof allianceFormSchema>;
+
+// ---- Server functions -------------------------------------------------------
+
+const createAlliance = createServerFn({ method: "POST" })
+  .inputValidator((data: AllianceFormValues) => data)
+  .handler(async ({ data }) => {
+    await db.insert(alliance).values(data);
+  });
 
 const updateAlliance = createServerFn({ method: "POST" })
-  .inputValidator((data: {
-    pk: string;
-    code: string;
-    name: string;
-    active: boolean;
-    allowInQuery: boolean;
-    priorityInList: boolean;
-  }) => data)
-  .handler(async ({ data }) => {
-    await db
-      .update(alliance)
-      .set({
-        code: data.code,
-        name: data.name,
-        active: data.active,
-        allowInQuery: data.allowInQuery,
-        priorityInList: data.priorityInList,
-      })
-      .where(eq(alliance.pk, data.pk));
+  .inputValidator((data: { pk: string } & AllianceFormValues) => data)
+  .handler(async ({ data: { pk, ...values } }) => {
+    await db.update(alliance).set(values).where(eq(alliance.pk, pk));
   });
 
 // ---- Component --------------------------------------------------------------
 
-export function EditAllianceSheet({
+export function AllianceSheet({
   alliance,
   open,
   onOpenChange,
@@ -63,6 +49,8 @@ export function EditAllianceSheet({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
+  const isEditing = alliance !== null;
+
   const form = useAppForm({
     validators: {
       onChange: allianceFormSchema,
@@ -75,7 +63,11 @@ export function EditAllianceSheet({
       priorityInList: alliance?.priorityInList ?? false,
     },
     onSubmit: async ({ value }) => {
-      await updateAlliance({ data: { pk: alliance!.pk, ...value } });
+      if (isEditing) {
+        await updateAlliance({ data: { pk: alliance.pk, ...value } });
+      } else {
+        await createAlliance({ data: value });
+      }
       onSaved();
       onOpenChange(false);
     },
@@ -85,11 +77,14 @@ export function EditAllianceSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex flex-col p-0">
         <form
-          onSubmit={(e) => { e.preventDefault(); form.handleSubmit(); }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            form.handleSubmit();
+          }}
           className="flex flex-1 flex-col overflow-hidden"
         >
           <SheetHeader className="border-b px-6 py-4">
-            <SheetTitle>Edit Alliance</SheetTitle>
+            <SheetTitle>{isEditing ? "Edit Alliance" : "New Alliance"}</SheetTitle>
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto px-6 py-5">
@@ -107,11 +102,15 @@ export function EditAllianceSheet({
               </form.AppField>
 
               <form.AppField name="allowInQuery">
-                {(field) => <field.CheckboxField label="Allow in Query" id="alliance-allow-in-query" />}
+                {(field) => (
+                  <field.CheckboxField label="Allow in query" id="alliance-allow-in-query" />
+                )}
               </form.AppField>
 
               <form.AppField name="priorityInList">
-                {(field) => <field.CheckboxField label="Priority in List" id="alliance-priority-in-list" />}
+                {(field) => (
+                  <field.CheckboxField label="Priority in list" id="alliance-priority-in-list" />
+                )}
               </form.AppField>
             </FieldGroup>
           </div>
@@ -129,7 +128,7 @@ export function EditAllianceSheet({
                     Cancel
                   </Button>
                   <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving…" : "Save changes"}
+                    {isSubmitting ? "Saving…" : isEditing ? "Save changes" : "Add alliance"}
                   </Button>
                 </>
               )}
