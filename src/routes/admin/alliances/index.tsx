@@ -10,16 +10,7 @@ import { alliance } from "#/db/schema/schema";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { useConfirm } from "@/components/confirm-dialog";
 import { type Alliance, AllianceSheet } from "./-edit-sheet";
 
 const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
@@ -47,10 +38,10 @@ export const Route = createFileRoute("/admin/alliances/")({
 function RouteComponent() {
   const data = Route.useLoaderData();
   const router = useRouter();
+  const confirm = useConfirm();
 
   // null = closed, "new" = create mode, Alliance = edit mode
   const [sheetAlliance, setSheetAlliance] = useState<Alliance | "new" | null>(null);
-  const [allianceToDelete, setAllianceToDelete] = useState<Alliance | null>(null);
 
   const columns: ColumnDef<Alliance>[] = [
     { accessorKey: "code", header: "Code" },
@@ -102,10 +93,18 @@ function RouteComponent() {
             className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={async () => {
               const allianceForDelete = await getAlliance({ data: { pk: row.original.pk } });
-              if (allianceForDelete) {
-                setAllianceToDelete(allianceForDelete);
-              } else {
+              if (!allianceForDelete) {
                 toast.error("Alliance not found. It may have been deleted by another user.");
+                router.invalidate();
+                return;
+              }
+              const confirmed = await confirm({
+                title: "Delete alliance",
+                description: <>Are you sure you want to delete <strong>{allianceForDelete.name}</strong>? This action cannot be undone.</>,
+                confirmLabel: "Delete",
+              });
+              if (confirmed) {
+                await deleteAlliance({ data: { pk: allianceForDelete.pk } });
                 router.invalidate();
               }
             }}
@@ -143,30 +142,6 @@ function RouteComponent() {
         onOpenChange={(open) => { if (!open) setSheetAlliance(null); }}
         onSaved={() => router.invalidate()}
       />
-
-      <AlertDialog open={allianceToDelete !== null} onOpenChange={(open) => { if (!open) setAllianceToDelete(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete alliance</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete <strong>{allianceToDelete?.name}</strong>? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={async () => {
-                await deleteAlliance({ data: { pk: allianceToDelete!.pk } });
-                setAllianceToDelete(null);
-                router.invalidate();
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
