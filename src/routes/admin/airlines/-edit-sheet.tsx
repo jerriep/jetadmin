@@ -149,7 +149,7 @@ export function AirlineSheet({
                 <div id="s-identity">
                   <FieldSet>
                     <form.AppField name="code">
-                      {(f) => <f.InputField label="IATA code" id="code" />}
+                      {(f) => <f.InputField label="IATA code" id="code" autoFocus />}
                     </form.AppField>
                     <form.AppField name="name">
                       {(f) => <f.InputField label="Name" id="name" />}
@@ -168,7 +168,7 @@ export function AirlineSheet({
                         <f.SelectField
                           label="Alliance"
                           id="alliance"
-                          options={allianceOptions}
+                          items={allianceOptions}
                           placeholder="No alliance"
                           nullable
                         />

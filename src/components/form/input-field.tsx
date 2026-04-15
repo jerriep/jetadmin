@@ -1,16 +1,24 @@
+import * as React from "react";
 import { useFieldContext } from "#/components/form/form-context";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-export function InputField({ label, id }: { label: string; id: string }) {
+export function InputField({
+  label,
+  id,
+  ...inputProps
+}: { label: string } & Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "onBlur">) {
+  const reactId = React.useId();
+  const resolvedId = id ?? reactId;
   const field = useFieldContext<string>();
   const hasError = field.state.meta.isTouched && field.state.meta.errors.length > 0;
 
   return (
     <Field data-invalid={hasError || undefined}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldLabel htmlFor={resolvedId}>{label}</FieldLabel>
       <Input
-        id={id}
+        id={resolvedId}
+        {...inputProps}
         value={field.state.value}
         onChange={(e) => field.handleChange(e.target.value)}
         onBlur={field.handleBlur}
