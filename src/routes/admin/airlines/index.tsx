@@ -47,10 +47,14 @@ function RouteComponent() {
 
   const { mutateAsync: deleteAirline } = useDeleteAirlineMutation();
   const { performDelete } = useDeleteAction({
+    entity: {
+      label: "airline",
+      getId: (a: Airline) => a.pk,
+      getDisplayName: (a: Airline) => a.name ?? a.code ?? "",
+    },
     fetchFn: (pk) => queryClient.fetchQuery({ ...airlineQueryOptions.detail(pk), staleTime: 0 }),
     deleteFn: deleteAirline,
     listQueryKey: airlineKeys.lists(),
-    entityLabel: "airline",
   });
 
   const [searchInput, setSearchInput] = useState(q);

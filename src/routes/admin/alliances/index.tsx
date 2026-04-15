@@ -28,10 +28,14 @@ function RouteComponent() {
   const { data: alliances = [] } = useQuery(allianceQueryOptions.list());
   const { mutateAsync: deleteAlliance } = useDeleteAllianceMutation();
   const { performDelete } = useDeleteAction({
+    entity: {
+      label: "alliance",
+      getId: (a: Alliance) => a.pk,
+      getDisplayName: (a: Alliance) => a.name ?? a.code ?? "",
+    },
     fetchFn: (pk) => queryClient.fetchQuery({ ...allianceQueryOptions.detail(pk), staleTime: 0 }),
     deleteFn: deleteAlliance,
     listQueryKey: allianceKeys.lists(),
-    entityLabel: "alliance",
   });
 
   // null = closed, "new" = create mode, Alliance = edit mode
