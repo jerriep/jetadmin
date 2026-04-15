@@ -6,7 +6,7 @@ import { and, asc, count, eq, ilike, or } from "drizzle-orm";
 import { type ColumnDef, type Updater, type PaginationState, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { PencilIcon, Trash2Icon } from "lucide-react";
 import { db } from "#/db/index";
-import { airline, alliance } from "#/db/schema/schema";
+import { airline } from "#/db/schema/schema";
 import { Input } from "@/components/ui/input";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { DataTable } from "@/components/data-table";
@@ -16,7 +16,7 @@ import { useConfirm } from "@/components/confirm-dialog";
 import { z } from "zod";
 import { activeStatusFilterSchema, pageSizeSchema } from "@/schemas/filters";
 import { useDebouncedCallback } from "@tanstack/react-pacer";
-import { type Airline, type AllianceOption, AirlineSheet } from "./-edit-sheet";
+import { type Airline, AirlineSheet } from "./-edit-sheet";
 
 const searchSchema = z.object({
   status: activeStatusFilterSchema.default("all"),
@@ -71,13 +71,6 @@ const deleteAirline = createServerFn({ method: "POST" })
     await db.delete(airline).where(eq(airline.pk, pk));
   });
 
-const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
-  return await db
-    .select({ pk: alliance.pk, name: alliance.name })
-    .from(alliance)
-    .orderBy(asc(alliance.name));
-});
-
 export const Route = createFileRoute("/admin/airlines/")({
   component: RouteComponent,
   validateSearch: searchSchema,
@@ -100,7 +93,6 @@ function RouteComponent() {
 
   const [searchInput, setSearchInput] = useState(q);
   const [sheetAirline, setSheetAirline] = useState<Airline | null>(null);
-  const [sheetAlliances, setSheetAlliances] = useState<AllianceOption[]>([]);
 
   const debouncedNavigate = useDebouncedCallback(
     (value: string) =>
@@ -147,12 +139,8 @@ function RouteComponent() {
             variant="outline"
             size="sm"
             onClick={async () => {
-              const [airlineForEdit, alliances] = await Promise.all([
-                getAirline({ data: { pk: row.original.pk } }),
-                getAlliances(),
-              ]);
+              const airlineForEdit = await getAirline({ data: { pk: row.original.pk } });
               if (airlineForEdit) {
-                setSheetAlliances(alliances);
                 setSheetAirline(airlineForEdit);
               } else {
                 toast.error("Airline not found. It may have been deleted by another user.");
@@ -250,7 +238,6 @@ function RouteComponent() {
         <AirlineSheet
           key={sheetAirline.pk}
           airline={sheetAirline}
-          alliances={sheetAlliances}
           open={sheetAirline !== null}
           onOpenChange={(open) => { if (!open) setSheetAirline(null); }}
           onSaved={() => router.invalidate()}

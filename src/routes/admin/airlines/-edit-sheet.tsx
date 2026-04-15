@@ -1,8 +1,9 @@
+import { useEffect, useState } from "react";
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/db/index";
-import { airline } from "#/db/schema/schema";
+import { airline, alliance } from "#/db/schema/schema";
 import { useAppForm } from "#/components/form/form";
 import { Button } from "@/components/ui/button";
 import { FieldGroup, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
@@ -29,6 +30,13 @@ type AirlineFormValues = z.infer<typeof airlineFormSchema>;
 
 // ---- Server functions -------------------------------------------------------
 
+const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
+  return await db
+    .select({ pk: alliance.pk, name: alliance.name })
+    .from(alliance)
+    .orderBy(asc(alliance.name));
+});
+
 const updateAirline = createServerFn({ method: "POST" })
   .inputValidator((data: { pk: string } & AirlineFormValues) => data)
   .handler(async ({ data: { pk, code3, ...values } }) => {
@@ -42,17 +50,21 @@ const updateAirline = createServerFn({ method: "POST" })
 
 export function AirlineSheet({
   airline: airlineData,
-  alliances,
   open,
   onOpenChange,
   onSaved,
 }: {
   airline: Airline;
-  alliances: AllianceOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
+  const [alliances, setAlliances] = useState<AllianceOption[]>([]);
+
+  useEffect(() => {
+    getAlliances().then(setAlliances);
+  }, []);
+
   const allianceOptions = alliances
     .filter((a): a is { pk: string; name: string } => a.name !== null)
     .map((a) => ({ value: a.pk, label: a.name }));
