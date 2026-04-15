@@ -2,6 +2,7 @@ import { createFormHook } from "@tanstack/react-form";
 import { fieldContext, formContext } from "./form-context";
 import { CheckboxField } from "#/components/form/checkbox-field";
 import { InputField } from "#/components/form/input-field";
+import { NumberInputField } from "#/components/form/number-input-field";
 import { SelectField } from "#/components/form/select-field";
 
 export const { useAppForm, withForm } = createFormHook({
@@ -9,6 +10,7 @@ export const { useAppForm, withForm } = createFormHook({
   formContext,
   fieldComponents: {
     InputField,
+    NumberInputField,
     CheckboxField,
     SelectField,
   },

@@ -18,15 +18,67 @@ export const airlineSearchSchema = z.object({
 export type AirlineSearchParams = z.infer<typeof airlineSearchSchema>;
 
 export const airlineFormSchema = z.object({
+  // Identity
   code: z.string().min(1, "IATA code is required"),
   name: z.string().min(1, "Name is required"),
   code3: z.string(),
+  alternateLookupName: z.string(),
+  generalUrl: z.string(),
   allianceFk: z.string().nullable(),
+  tier: z.number().int().nullable(),
+
+  // Status & search
   active: z.boolean(),
   allowInQuery: z.boolean(),
   allowInSearchResult: z.boolean(),
   allowInCombinationInSearchResult: z.boolean(),
   priorityInList: z.boolean(),
+  sellFirst: z.boolean(),
+  sellSeparately: z.boolean(),
+  sellContiguously: z.boolean(),
+  filterSimilarPricePoints: z.boolean(),
+  showBaggageRecheckWarning: z.boolean(),
+
+  // E-ticketing
+  supportsETicketing: z.boolean(),
+  eTicketingSupportAirlines: z.string(),
+  noETicketForInfant: z.boolean(),
+  highestEconomyBookingClass: z.string().max(1),
+  platingCarrierCode: z.string(),
+  isBspParticipant: z.boolean(),
+  excludedFlightNumbers: z.string(),
+  excludedCodeshares: z.string(),
+
+  // P-ticketing
+  supportsPticketing: z.boolean(),
+  pTicketingSupportAirlines: z.string(),
+  pTicketForInfant: z.boolean(),
+  supportsEPay: z.boolean(),
+
+  // Frequent flyer
+  frequentFlyerSupport: z.boolean(),
+  frequentFlyerName: z.string(),
+  priorityInFrequentFlyerList: z.boolean(),
+  frequentFlyerSupportAirlines: z.string(),
+
+  // Passenger rules
+  requirePassport: z.boolean(),
+  requiresMiddleName: z.boolean(),
+  passengerNameLengthLimit: z.number().int(),
+  requiresSecureFlightSsrsForAllBookings: z.boolean(),
+  rejectsDebitCards: z.boolean(),
+
+  // Integrations
+  tfSupplierName: z.string(),
+  tfPrepay: z.boolean(),
+  tfDefaultCurrency: z.string(),
+  tfPromptForPassportIfOptional: z.boolean(),
+  tfSupportsNdc: z.boolean(),
+  duffelSourceName: z.string(),
+  everbreadLccBookingCodeOverride: z.string(),
+  firstPassApfp: z.boolean(),
+  excludeObFeesAu: z.boolean(),
+  excludeObFeesNz: z.boolean(),
 });
 
 export type AirlineFormValues = z.infer<typeof airlineFormSchema>;
@@ -72,10 +124,24 @@ export const getAirline = createServerFn({ method: "GET" })
 
 export const updateAirline = createServerFn({ method: "POST" })
   .inputValidator((data: { pk: string } & AirlineFormValues) => data)
-  .handler(async ({ data: { pk, code3, ...values } }) => {
+  .handler(async ({ data: { pk, code3, alternateLookupName, generalUrl, platingCarrierCode, eTicketingSupportAirlines, pTicketingSupportAirlines, frequentFlyerName, everbreadLccBookingCodeOverride, tfSupplierName, tfDefaultCurrency, duffelSourceName, ...values } }) => {
+    const n = (v: string) => v || null;
     await db
       .update(airline)
-      .set({ ...values, code3: code3 || null })
+      .set({
+        ...values,
+        code3: n(code3),
+        alternateLookupName: n(alternateLookupName),
+        generalUrl: n(generalUrl),
+        platingCarrierCode: n(platingCarrierCode),
+        eTicketingSupportAirlines: n(eTicketingSupportAirlines),
+        pTicketingSupportAirlines: n(pTicketingSupportAirlines),
+        frequentFlyerName: n(frequentFlyerName),
+        everbreadLccBookingCodeOverride: n(everbreadLccBookingCodeOverride),
+        tfSupplierName: n(tfSupplierName),
+        tfDefaultCurrency: n(tfDefaultCurrency),
+        duffelSourceName: n(duffelSourceName),
+      })
       .where(eq(airline.pk, pk));
   });
 
