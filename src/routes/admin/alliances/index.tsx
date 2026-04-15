@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { type ColumnDef, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { db } from "#/db/index";
@@ -14,6 +15,13 @@ import { type Alliance, AllianceSheet } from "./-edit-sheet";
 const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
   return await db.select().from(alliance).orderBy(asc(alliance.name));
 });
+
+const getAlliance = createServerFn({ method: "GET" })
+  .inputValidator((data: { pk: string }) => data)
+  .handler(async ({ data: { pk } }) => {
+    const result = await db.select().from(alliance).where(eq(alliance.pk, pk)).limit(1);
+    return result[0] ?? null;
+  });
 
 export const Route = createFileRoute("/admin/alliances/")({
   component: RouteComponent,
@@ -41,7 +49,7 @@ function RouteComponent() {
       accessorKey: "allowInQuery",
       header: "Allow in query",
       cell: ({ getValue }) => (
-        <BooleanBadgeCell value={getValue<boolean | null>()} trueLabel="Allow" falseLabel="Disallow" />
+        <BooleanBadgeCell value={getValue<boolean | null>()} trueLabel="Allowed" falseLabel="Not allowed" />
       ),
     },
     {
@@ -54,7 +62,19 @@ function RouteComponent() {
       header: "",
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
-          <Button variant="outline" size="sm" onClick={() => setSheetAlliance(row.original)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const allianceForEdit = await getAlliance({ data: { pk: row.original.pk } });
+              if (allianceForEdit) {
+                setSheetAlliance(allianceForEdit);
+              } else {
+                toast.error("Alliance not found. It may have been deleted by another user.");
+                router.invalidate();
+              }
+            }}
+          >
             <PencilIcon className="size-4 shrink-0" />
             Edit
           </Button>
