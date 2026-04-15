@@ -17,7 +17,6 @@ import {
   airlineSearchSchema,
   airlineQueryOptions,
   airlineKeys,
-  getAirline,
   useDeleteAirlineMutation,
 } from "@/services/airlines";
 import { AirlineSheet } from "./-edit-sheet";
@@ -97,9 +96,10 @@ function RouteComponent() {
             variant="outline"
             size="sm"
             onClick={async () => {
-              const airlineForEdit = await queryClient.fetchQuery(
-                airlineQueryOptions.detail(row.original.pk),
-              );
+              const airlineForEdit = await queryClient.fetchQuery({
+                ...airlineQueryOptions.detail(row.original.pk),
+                staleTime: 0,
+              });
               if (airlineForEdit) {
                 setSheetAirline(airlineForEdit);
               } else {
@@ -117,7 +117,10 @@ function RouteComponent() {
             aria-label="Delete"
             className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={async () => {
-              const airlineForDelete = await getAirline({ data: { pk: row.original.pk } });
+              const airlineForDelete = await queryClient.fetchQuery({
+                ...airlineQueryOptions.detail(row.original.pk),
+                staleTime: 0,
+              });
               if (!airlineForDelete) {
                 toast.error("Airline not found. It may have been deleted by another user.");
                 queryClient.invalidateQueries({ queryKey: airlineKeys.lists() });

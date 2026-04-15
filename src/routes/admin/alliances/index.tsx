@@ -12,7 +12,6 @@ import {
   type Alliance,
   allianceQueryOptions,
   allianceKeys,
-  getAlliance,
   useDeleteAllianceMutation,
 } from "@/services/alliances";
 import { AllianceSheet } from "./-edit-sheet";
@@ -64,9 +63,10 @@ function RouteComponent() {
             variant="outline"
             size="sm"
             onClick={async () => {
-              const allianceForEdit = await queryClient.fetchQuery(
-                allianceQueryOptions.detail(row.original.pk),
-              );
+              const allianceForEdit = await queryClient.fetchQuery({
+                ...allianceQueryOptions.detail(row.original.pk),
+                staleTime: 0,
+              });
               if (allianceForEdit) {
                 setSheetAlliance(allianceForEdit);
               } else {
@@ -84,7 +84,10 @@ function RouteComponent() {
             aria-label="Delete"
             className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={async () => {
-              const allianceForDelete = await getAlliance({ data: { pk: row.original.pk } });
+              const allianceForDelete = await queryClient.fetchQuery({
+                ...allianceQueryOptions.detail(row.original.pk),
+                staleTime: 0,
+              });
               if (!allianceForDelete) {
                 toast.error("Alliance not found. It may have been deleted by another user.");
                 queryClient.invalidateQueries({ queryKey: allianceKeys.lists() });
