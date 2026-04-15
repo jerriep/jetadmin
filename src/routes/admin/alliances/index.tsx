@@ -7,7 +7,7 @@ import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
-import { useConfirm } from "@/components/confirm-dialog";
+import { useDeleteAction } from "@/hooks/use-delete-action";
 import {
   type Alliance,
   allianceQueryOptions,
@@ -25,9 +25,14 @@ export const Route = createFileRoute("/admin/alliances/")({
 
 function RouteComponent() {
   const queryClient = useQueryClient();
-  const confirm = useConfirm();
   const { data: alliances = [] } = useQuery(allianceQueryOptions.list());
-  const deleteAlliance = useDeleteAllianceMutation();
+  const { mutateAsync: deleteAlliance } = useDeleteAllianceMutation();
+  const { performDelete } = useDeleteAction({
+    fetchFn: (pk) => queryClient.fetchQuery({ ...allianceQueryOptions.detail(pk), staleTime: 0 }),
+    deleteFn: deleteAlliance,
+    listQueryKey: allianceKeys.lists(),
+    entityLabel: "alliance",
+  });
 
   // null = closed, "new" = create mode, Alliance = edit mode
   const [sheetAlliance, setSheetAlliance] = useState<Alliance | "new" | null>(null);
@@ -83,30 +88,7 @@ function RouteComponent() {
             size="icon-sm"
             aria-label="Delete"
             className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={async () => {
-              const allianceForDelete = await queryClient.fetchQuery({
-                ...allianceQueryOptions.detail(row.original.pk),
-                staleTime: 0,
-              });
-              if (!allianceForDelete) {
-                toast.error("Alliance not found. It may have been deleted by another user.");
-                queryClient.invalidateQueries({ queryKey: allianceKeys.lists() });
-                return;
-              }
-              const confirmed = await confirm({
-                title: "Delete alliance",
-                description: (
-                  <>
-                    Are you sure you want to delete <strong>{allianceForDelete.name}</strong>? This
-                    action cannot be undone.
-                  </>
-                ),
-                confirmLabel: "Delete",
-              });
-              if (confirmed) {
-                await deleteAlliance.mutateAsync(allianceForDelete.pk);
-              }
-            }}
+            onClick={() => performDelete(row.original.pk)}
           >
             <Trash2Icon className="size-4 shrink-0" />
           </Button>

@@ -9,8 +9,8 @@ import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { DataTable } from "@/components/data-table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { useConfirm } from "@/components/confirm-dialog";
 import { useDebouncedCallback } from "@tanstack/react-pacer";
+import { useDeleteAction } from "@/hooks/use-delete-action";
 import {
   type Airline,
   type AirlineSearchParams,
@@ -39,7 +39,6 @@ function RouteComponent() {
   const queryClient = useQueryClient();
   const { status, page, pageSize, q } = Route.useSearch();
   const navigate = useNavigate();
-  const confirm = useConfirm();
 
   const { data } = useQuery(airlineQueryOptions.list({ status, page, pageSize, q }));
   const rows = data?.rows ?? [];
@@ -47,6 +46,12 @@ function RouteComponent() {
   const totalPages = Math.ceil(total / pageSize);
 
   const { mutateAsync: deleteAirline } = useDeleteAirlineMutation();
+  const { performDelete } = useDeleteAction({
+    fetchFn: (pk) => queryClient.fetchQuery({ ...airlineQueryOptions.detail(pk), staleTime: 0 }),
+    deleteFn: deleteAirline,
+    listQueryKey: airlineKeys.lists(),
+    entityLabel: "airline",
+  });
 
   const [searchInput, setSearchInput] = useState(q);
   const [sheetAirline, setSheetAirline] = useState<Airline | null>(null);
@@ -116,30 +121,7 @@ function RouteComponent() {
             size="icon-sm"
             aria-label="Delete"
             className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={async () => {
-              const airlineForDelete = await queryClient.fetchQuery({
-                ...airlineQueryOptions.detail(row.original.pk),
-                staleTime: 0,
-              });
-              if (!airlineForDelete) {
-                toast.error("Airline not found. It may have been deleted by another user.");
-                queryClient.invalidateQueries({ queryKey: airlineKeys.lists() });
-                return;
-              }
-              const confirmed = await confirm({
-                title: "Delete airline",
-                description: (
-                  <>
-                    Are you sure you want to delete <strong>{airlineForDelete.name}</strong>? This
-                    action cannot be undone.
-                  </>
-                ),
-                confirmLabel: "Delete",
-              });
-              if (confirmed) {
-                await deleteAirline(airlineForDelete.pk);
-              }
-            }}
+            onClick={() => performDelete(row.original.pk)}
           >
             <Trash2Icon className="size-4 shrink-0" />
           </Button>
