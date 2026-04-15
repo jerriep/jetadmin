@@ -1,17 +1,22 @@
 import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { and, asc, count, eq, ilike, or } from "drizzle-orm";
 import { type ColumnDef, type Updater, type PaginationState, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 import { db } from "#/db/index";
-import { airline } from "#/db/schema/schema";
+import { airline, alliance } from "#/db/schema/schema";
 import { Input } from "@/components/ui/input";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { DataTable } from "@/components/data-table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/confirm-dialog";
 import { z } from "zod";
 import { activeStatusFilterSchema, pageSizeSchema } from "@/schemas/filters";
 import { useDebouncedCallback } from "@tanstack/react-pacer";
+import { type Airline, type AllianceOption, AirlineSheet } from "./-edit-sheet";
 
 const searchSchema = z.object({
   status: activeStatusFilterSchema.default("all"),
@@ -53,6 +58,26 @@ const getAirlines = createServerFn({ method: "GET" })
     return { rows, total };
   });
 
+const getAirline = createServerFn({ method: "GET" })
+  .inputValidator((data: { pk: string }) => data)
+  .handler(async ({ data: { pk } }) => {
+    const result = await db.select().from(airline).where(eq(airline.pk, pk)).limit(1);
+    return result[0] ?? null;
+  });
+
+const deleteAirline = createServerFn({ method: "POST" })
+  .inputValidator((data: { pk: string }) => data)
+  .handler(async ({ data: { pk } }) => {
+    await db.delete(airline).where(eq(airline.pk, pk));
+  });
+
+const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
+  return await db
+    .select({ pk: alliance.pk, name: alliance.name })
+    .from(alliance)
+    .orderBy(asc(alliance.name));
+});
+
 export const Route = createFileRoute("/admin/airlines/")({
   component: RouteComponent,
   validateSearch: searchSchema,
@@ -65,52 +90,113 @@ export const Route = createFileRoute("/admin/airlines/")({
   loader: async ({ deps }) => await getAirlines({ data: deps }),
 });
 
-const columns: ColumnDef<AirlineRow>[] = [
-  {
-    id: "logo",
-    header: () => null,
-    cell: ({ row }) => (
-      <img
-        src={`https://www.jetabroad.com.au/assets/airlines/logos/${row.original.code}.svg`}
-        alt={row.original.name ?? row.original.code ?? ""}
-        className="size-8 object-contain"
-      />
-    ),
-  },
-  {
-    accessorKey: "code",
-    header: "IATA",
-    cell: ({ getValue }) => (
-      <span className="tabular-nums text-muted-foreground">{getValue<string | null>() ?? "—"}</span>
-    ),
-  },
-  {
-    accessorKey: "name",
-    header: "Name",
-  },
-  {
-    accessorKey: "active",
-    header: "Active",
-    cell: ({ getValue }) => (
-      <BooleanBadgeCell value={getValue<boolean>()} trueLabel="Active" falseLabel="Inactive" />
-    ),
-  },
-];
-
-
 function RouteComponent() {
   const { rows, total } = Route.useLoaderData();
   const { status, page, pageSize, q } = Route.useSearch();
   const navigate = useNavigate();
+  const router = useRouter();
+  const confirm = useConfirm();
   const totalPages = Math.ceil(total / pageSize);
 
   const [searchInput, setSearchInput] = useState(q);
+  const [sheetAirline, setSheetAirline] = useState<Airline | null>(null);
+  const [sheetAlliances, setSheetAlliances] = useState<AllianceOption[]>([]);
 
   const debouncedNavigate = useDebouncedCallback(
     (value: string) =>
       navigate({ to: "/admin/airlines", search: { status, page: 1, pageSize, q: value } }),
     { wait: 300 },
   );
+
+  const columns: ColumnDef<AirlineRow>[] = [
+    {
+      id: "logo",
+      header: () => null,
+      cell: ({ row }) => (
+        <img
+          src={`https://www.jetabroad.com.au/assets/airlines/logos/${row.original.code}.svg`}
+          alt={row.original.name ?? row.original.code ?? ""}
+          className="size-8 object-contain"
+        />
+      ),
+    },
+    {
+      accessorKey: "code",
+      header: "IATA",
+      cell: ({ getValue }) => (
+        <span className="tabular-nums text-muted-foreground">{getValue<string | null>() ?? "—"}</span>
+      ),
+    },
+    {
+      accessorKey: "name",
+      header: "Name",
+    },
+    {
+      accessorKey: "active",
+      header: "Active",
+      cell: ({ getValue }) => (
+        <BooleanBadgeCell value={getValue<boolean>()} trueLabel="Active" falseLabel="Inactive" />
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const [airlineForEdit, alliances] = await Promise.all([
+                getAirline({ data: { pk: row.original.pk } }),
+                getAlliances(),
+              ]);
+              if (airlineForEdit) {
+                setSheetAlliances(alliances);
+                setSheetAirline(airlineForEdit);
+              } else {
+                toast.error("Airline not found. It may have been deleted by another user.");
+                router.invalidate();
+              }
+            }}
+          >
+            <PencilIcon className="size-4 shrink-0" />
+            Edit
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Delete"
+            className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={async () => {
+              const airlineForDelete = await getAirline({ data: { pk: row.original.pk } });
+              if (!airlineForDelete) {
+                toast.error("Airline not found. It may have been deleted by another user.");
+                router.invalidate();
+                return;
+              }
+              const confirmed = await confirm({
+                title: "Delete airline",
+                description: (
+                  <>
+                    Are you sure you want to delete <strong>{airlineForDelete.name}</strong>? This
+                    action cannot be undone.
+                  </>
+                ),
+                confirmLabel: "Delete",
+              });
+              if (confirmed) {
+                await deleteAirline({ data: { pk: airlineForDelete.pk } });
+                router.invalidate();
+              }
+            }}
+          >
+            <Trash2Icon className="size-4 shrink-0" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   const table = useReactTable({
     data: rows,
@@ -159,6 +245,17 @@ function RouteComponent() {
         />
       </div>
       <DataTable table={table} />
+
+      {sheetAirline && (
+        <AirlineSheet
+          key={sheetAirline.pk}
+          airline={sheetAirline}
+          alliances={sheetAlliances}
+          open={sheetAirline !== null}
+          onOpenChange={(open) => { if (!open) setSheetAirline(null); }}
+          onSaved={() => router.invalidate()}
+        />
+      )}
     </div>
   );
 }
