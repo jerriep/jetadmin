@@ -1,44 +1,34 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { asc, eq } from "drizzle-orm";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { db } from "#/db/index";
-import { alliance } from "#/db/schema/schema";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/confirm-dialog";
-import { type Alliance, AllianceSheet } from "./-edit-sheet";
-
-const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
-  return await db.select().from(alliance).orderBy(asc(alliance.name));
-});
-
-const getAlliance = createServerFn({ method: "GET" })
-  .inputValidator((data: { pk: string }) => data)
-  .handler(async ({ data: { pk } }) => {
-    const result = await db.select().from(alliance).where(eq(alliance.pk, pk)).limit(1);
-    return result[0] ?? null;
-  });
-
-const deleteAlliance = createServerFn({ method: "POST" })
-  .inputValidator((data: { pk: string }) => data)
-  .handler(async ({ data: { pk } }) => {
-    await db.delete(alliance).where(eq(alliance.pk, pk));
-  });
+import {
+  type Alliance,
+  allianceQueryOptions,
+  allianceKeys,
+  getAlliance,
+  useDeleteAllianceMutation,
+} from "@/services/alliances";
+import { AllianceSheet } from "./-edit-sheet";
 
 export const Route = createFileRoute("/admin/alliances/")({
   component: RouteComponent,
-  loader: async () => await getAlliances(),
+  loader: async ({ context: { queryClient } }) => {
+    await queryClient.ensureQueryData(allianceQueryOptions.list());
+  },
 });
 
 function RouteComponent() {
-  const data = Route.useLoaderData();
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const confirm = useConfirm();
+  const { data: alliances = [] } = useQuery(allianceQueryOptions.list());
+  const deleteAlliance = useDeleteAllianceMutation();
 
   // null = closed, "new" = create mode, Alliance = edit mode
   const [sheetAlliance, setSheetAlliance] = useState<Alliance | "new" | null>(null);
@@ -74,12 +64,14 @@ function RouteComponent() {
             variant="outline"
             size="sm"
             onClick={async () => {
-              const allianceForEdit = await getAlliance({ data: { pk: row.original.pk } });
+              const allianceForEdit = await queryClient.fetchQuery(
+                allianceQueryOptions.detail(row.original.pk),
+              );
               if (allianceForEdit) {
                 setSheetAlliance(allianceForEdit);
               } else {
                 toast.error("Alliance not found. It may have been deleted by another user.");
-                router.invalidate();
+                queryClient.invalidateQueries({ queryKey: allianceKeys.lists() });
               }
             }}
           >
@@ -95,17 +87,21 @@ function RouteComponent() {
               const allianceForDelete = await getAlliance({ data: { pk: row.original.pk } });
               if (!allianceForDelete) {
                 toast.error("Alliance not found. It may have been deleted by another user.");
-                router.invalidate();
+                queryClient.invalidateQueries({ queryKey: allianceKeys.lists() });
                 return;
               }
               const confirmed = await confirm({
                 title: "Delete alliance",
-                description: <>Are you sure you want to delete <strong>{allianceForDelete.name}</strong>? This action cannot be undone.</>,
+                description: (
+                  <>
+                    Are you sure you want to delete <strong>{allianceForDelete.name}</strong>? This
+                    action cannot be undone.
+                  </>
+                ),
                 confirmLabel: "Delete",
               });
               if (confirmed) {
-                await deleteAlliance({ data: { pk: allianceForDelete.pk } });
-                router.invalidate();
+                await deleteAlliance.mutateAsync(allianceForDelete.pk);
               }
             }}
           >
@@ -117,7 +113,7 @@ function RouteComponent() {
   ];
 
   const table = useReactTable({
-    data,
+    data: alliances,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -139,8 +135,9 @@ function RouteComponent() {
         key={sheetAlliance === "new" ? "new" : (sheetAlliance?.pk ?? "")}
         alliance={selectedAlliance}
         open={sheetAlliance !== null}
-        onOpenChange={(open) => { if (!open) setSheetAlliance(null); }}
-        onSaved={() => router.invalidate()}
+        onOpenChange={(open) => {
+          if (!open) setSheetAlliance(null);
+        }}
       />
     </>
   );

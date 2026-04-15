@@ -1,40 +1,15 @@
-import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
-import { z } from "zod";
-import { db } from "#/db/index";
-import { alliance } from "#/db/schema/schema";
 import { useAppForm } from "#/components/form/form";
 import { Button } from "@/components/ui/button";
 import { FieldGroup, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  type Alliance,
+  allianceFormSchema,
+  useCreateAllianceMutation,
+  useUpdateAllianceMutation,
+} from "@/services/alliances";
 
-export type Alliance = typeof alliance.$inferSelect;
-
-// ---- Validation schema ------------------------------------------------------
-
-const allianceFormSchema = z.object({
-  code: z.string().min(1, "Code is required"),
-  name: z.string().min(1, "Name is required"),
-  active: z.boolean(),
-  allowInQuery: z.boolean(),
-  priorityInList: z.boolean(),
-});
-
-type AllianceFormValues = z.infer<typeof allianceFormSchema>;
-
-// ---- Server functions -------------------------------------------------------
-
-const createAlliance = createServerFn({ method: "POST" })
-  .inputValidator((data: AllianceFormValues) => data)
-  .handler(async ({ data }) => {
-    await db.insert(alliance).values(data);
-  });
-
-const updateAlliance = createServerFn({ method: "POST" })
-  .inputValidator((data: { pk: string } & AllianceFormValues) => data)
-  .handler(async ({ data: { pk, ...values } }) => {
-    await db.update(alliance).set(values).where(eq(alliance.pk, pk));
-  });
+export type { Alliance };
 
 // ---- Component --------------------------------------------------------------
 
@@ -42,14 +17,15 @@ export function AllianceSheet({
   alliance,
   open,
   onOpenChange,
-  onSaved,
 }: {
   alliance: Alliance | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
 }) {
   const isEditing = alliance !== null;
+
+  const { mutateAsync: createAlliance } = useCreateAllianceMutation();
+  const { mutateAsync: updateAlliance } = useUpdateAllianceMutation();
 
   const form = useAppForm({
     validators: {
@@ -64,11 +40,10 @@ export function AllianceSheet({
     },
     onSubmit: async ({ value }) => {
       if (isEditing) {
-        await updateAlliance({ data: { pk: alliance.pk, ...value } });
+        await updateAlliance({ pk: alliance.pk, values: value });
       } else {
-        await createAlliance({ data: value });
+        await createAlliance(value);
       }
-      onSaved();
       onOpenChange(false);
     },
   });

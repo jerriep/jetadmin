@@ -1,50 +1,16 @@
-import { useEffect, useState } from "react";
-import { createServerFn } from "@tanstack/react-start";
-import { asc, eq } from "drizzle-orm";
-import { z } from "zod";
-import { db } from "#/db/index";
-import { airline, alliance } from "#/db/schema/schema";
+import { useQuery } from "@tanstack/react-query";
 import { useAppForm } from "#/components/form/form";
 import { Button } from "@/components/ui/button";
 import { FieldGroup, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  type Airline,
+  airlineFormSchema,
+  useUpdateAirlineMutation,
+} from "@/services/airlines";
+import { allianceQueryOptions } from "@/services/alliances";
 
-export type Airline = typeof airline.$inferSelect;
-export type AllianceOption = { pk: string; name: string | null };
-
-// ---- Validation schema ------------------------------------------------------
-
-const airlineFormSchema = z.object({
-  code: z.string().min(1, "IATA code is required"),
-  name: z.string().min(1, "Name is required"),
-  code3: z.string(),
-  allianceFk: z.string().nullable(),
-  active: z.boolean(),
-  allowInQuery: z.boolean(),
-  allowInSearchResult: z.boolean(),
-  allowInCombinationInSearchResult: z.boolean(),
-  priorityInList: z.boolean(),
-});
-
-type AirlineFormValues = z.infer<typeof airlineFormSchema>;
-
-// ---- Server functions -------------------------------------------------------
-
-const getAlliances = createServerFn({ method: "GET" }).handler(async () => {
-  return await db
-    .select({ pk: alliance.pk, name: alliance.name })
-    .from(alliance)
-    .orderBy(asc(alliance.name));
-});
-
-const updateAirline = createServerFn({ method: "POST" })
-  .inputValidator((data: { pk: string } & AirlineFormValues) => data)
-  .handler(async ({ data: { pk, code3, ...values } }) => {
-    await db
-      .update(airline)
-      .set({ ...values, code3: code3 || null })
-      .where(eq(airline.pk, pk));
-  });
+export type { Airline };
 
 // ---- Component --------------------------------------------------------------
 
@@ -52,22 +18,18 @@ export function AirlineSheet({
   airline: airlineData,
   open,
   onOpenChange,
-  onSaved,
 }: {
   airline: Airline;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
 }) {
-  const [alliances, setAlliances] = useState<AllianceOption[]>([]);
-
-  useEffect(() => {
-    getAlliances().then(setAlliances);
-  }, []);
+  const { data: alliances = [] } = useQuery(allianceQueryOptions.list());
 
   const allianceOptions = alliances
-    .filter((a): a is { pk: string; name: string } => a.name !== null)
+    .filter((a): a is typeof a & { name: string } => a.name !== null)
     .map((a) => ({ value: a.pk, label: a.name }));
+
+  const { mutateAsync: updateAirline } = useUpdateAirlineMutation();
 
   const form = useAppForm({
     validators: {
@@ -85,8 +47,7 @@ export function AirlineSheet({
       priorityInList: airlineData.priorityInList,
     },
     onSubmit: async ({ value }) => {
-      await updateAirline({ data: { pk: airlineData.pk, ...value } });
-      onSaved();
+      await updateAirline({ pk: airlineData.pk, values: value });
       onOpenChange(false);
     },
   });

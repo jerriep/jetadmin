@@ -1,95 +1,53 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { and, asc, count, eq, ilike, or } from "drizzle-orm";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef, type Updater, type PaginationState, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { PencilIcon, Trash2Icon } from "lucide-react";
-import { db } from "#/db/index";
-import { airline } from "#/db/schema/schema";
 import { Input } from "@/components/ui/input";
 import { BooleanBadgeCell } from "@/components/table-boolean-badge-cell";
 import { DataTable } from "@/components/data-table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/confirm-dialog";
-import { z } from "zod";
-import { activeStatusFilterSchema, pageSizeSchema } from "@/schemas/filters";
 import { useDebouncedCallback } from "@tanstack/react-pacer";
-import { type Airline, AirlineSheet } from "./-edit-sheet";
-
-const searchSchema = z.object({
-  status: activeStatusFilterSchema.default("all"),
-  page: z.number().int().positive().default(1),
-  pageSize: pageSizeSchema.default(25),
-  q: z.string().default(""),
-});
-
-type SearchParams = z.infer<typeof searchSchema>;
-type AirlineRow = typeof airline.$inferSelect;
-
-const getAirlines = createServerFn({ method: "GET" })
-  .inputValidator((data: SearchParams) => data)
-  .handler(async ({ data: { status, page, pageSize, q } }) => {
-    const statusFilter =
-      status === "active"
-        ? eq(airline.active, true)
-        : status === "inactive"
-          ? eq(airline.active, false)
-          : undefined;
-
-    const searchFilter = q
-      ? or(ilike(airline.name, `%${q}%`), ilike(airline.code, `%${q}%`))
-      : undefined;
-
-    const where = and(statusFilter, searchFilter);
-
-    const [rows, [{ total }]] = await Promise.all([
-      db
-        .select()
-        .from(airline)
-        .where(where)
-        .orderBy(asc(airline.name))
-        .limit(pageSize)
-        .offset((page - 1) * pageSize),
-      db.select({ total: count() }).from(airline).where(where),
-    ]);
-
-    return { rows, total };
-  });
-
-const getAirline = createServerFn({ method: "GET" })
-  .inputValidator((data: { pk: string }) => data)
-  .handler(async ({ data: { pk } }) => {
-    const result = await db.select().from(airline).where(eq(airline.pk, pk)).limit(1);
-    return result[0] ?? null;
-  });
-
-const deleteAirline = createServerFn({ method: "POST" })
-  .inputValidator((data: { pk: string }) => data)
-  .handler(async ({ data: { pk } }) => {
-    await db.delete(airline).where(eq(airline.pk, pk));
-  });
+import {
+  type Airline,
+  type AirlineSearchParams,
+  airlineSearchSchema,
+  airlineQueryOptions,
+  airlineKeys,
+  getAirline,
+  useDeleteAirlineMutation,
+} from "@/services/airlines";
+import { AirlineSheet } from "./-edit-sheet";
 
 export const Route = createFileRoute("/admin/airlines/")({
   component: RouteComponent,
-  validateSearch: searchSchema,
+  validateSearch: airlineSearchSchema,
   loaderDeps: ({ search }) => ({
     status: search.status,
     page: search.page,
     pageSize: search.pageSize,
     q: search.q,
   }),
-  loader: async ({ deps }) => await getAirlines({ data: deps }),
+  loader: async ({ context: { queryClient }, deps }) => {
+    await queryClient.ensureQueryData(airlineQueryOptions.list(deps));
+  },
 });
 
 function RouteComponent() {
-  const { rows, total } = Route.useLoaderData();
+  const queryClient = useQueryClient();
   const { status, page, pageSize, q } = Route.useSearch();
   const navigate = useNavigate();
-  const router = useRouter();
   const confirm = useConfirm();
+
+  const { data } = useQuery(airlineQueryOptions.list({ status, page, pageSize, q }));
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / pageSize);
+
+  const { mutateAsync: deleteAirline } = useDeleteAirlineMutation();
 
   const [searchInput, setSearchInput] = useState(q);
   const [sheetAirline, setSheetAirline] = useState<Airline | null>(null);
@@ -100,7 +58,7 @@ function RouteComponent() {
     { wait: 300 },
   );
 
-  const columns: ColumnDef<AirlineRow>[] = [
+  const columns: ColumnDef<Airline>[] = [
     {
       id: "logo",
       header: () => null,
@@ -139,12 +97,14 @@ function RouteComponent() {
             variant="outline"
             size="sm"
             onClick={async () => {
-              const airlineForEdit = await getAirline({ data: { pk: row.original.pk } });
+              const airlineForEdit = await queryClient.fetchQuery(
+                airlineQueryOptions.detail(row.original.pk),
+              );
               if (airlineForEdit) {
                 setSheetAirline(airlineForEdit);
               } else {
                 toast.error("Airline not found. It may have been deleted by another user.");
-                router.invalidate();
+                queryClient.invalidateQueries({ queryKey: airlineKeys.lists() });
               }
             }}
           >
@@ -160,7 +120,7 @@ function RouteComponent() {
               const airlineForDelete = await getAirline({ data: { pk: row.original.pk } });
               if (!airlineForDelete) {
                 toast.error("Airline not found. It may have been deleted by another user.");
-                router.invalidate();
+                queryClient.invalidateQueries({ queryKey: airlineKeys.lists() });
                 return;
               }
               const confirmed = await confirm({
@@ -174,8 +134,7 @@ function RouteComponent() {
                 confirmLabel: "Delete",
               });
               if (confirmed) {
-                await deleteAirline({ data: { pk: airlineForDelete.pk } });
-                router.invalidate();
+                await deleteAirline(airlineForDelete.pk);
               }
             }}
           >
@@ -203,7 +162,7 @@ function RouteComponent() {
         search: {
           status,
           page: next.pageIndex + 1,
-          pageSize: next.pageSize as SearchParams["pageSize"],
+          pageSize: next.pageSize as AirlineSearchParams["pageSize"],
           q,
         },
       });
@@ -216,7 +175,10 @@ function RouteComponent() {
         <Tabs
           value={status}
           onValueChange={(value) =>
-            navigate({ to: "/admin/airlines", search: { status: value as SearchParams["status"], page: 1, pageSize, q } })
+            navigate({
+              to: "/admin/airlines",
+              search: { status: value as AirlineSearchParams["status"], page: 1, pageSize, q },
+            })
           }
         >
           <TabsList>
@@ -228,7 +190,10 @@ function RouteComponent() {
         <Input
           placeholder="Search by name or IATA code…"
           value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); debouncedNavigate(e.target.value); }}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            debouncedNavigate(e.target.value);
+          }}
           className="max-w-xs"
         />
       </div>
@@ -239,8 +204,9 @@ function RouteComponent() {
           key={sheetAirline.pk}
           airline={sheetAirline}
           open={sheetAirline !== null}
-          onOpenChange={(open) => { if (!open) setSheetAirline(null); }}
-          onSaved={() => router.invalidate()}
+          onOpenChange={(open) => {
+            if (!open) setSheetAirline(null);
+          }}
         />
       )}
     </div>
